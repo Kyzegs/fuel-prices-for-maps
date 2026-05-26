@@ -1,0 +1,11 @@
+.DS_Store
+node_modules/
+.wxt/
+.output/
+.wrangler/
+.wrangler-home/
+dist/
+coverage/
+*.log
+.env
+.dev.vars

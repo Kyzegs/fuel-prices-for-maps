@@ -1,0 +1,51 @@
+{
+  "name": "fuel-cost-extension",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare": "wxt prepare",
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox --mv3",
+    "build": "npm run build:chrome && npm run build:firefox && npm run worker:build",
+    "build:chrome": "wxt build -b chrome",
+    "build:firefox": "wxt build -b firefox --mv3",
+    "zip:chrome": "wxt zip -b chrome",
+    "zip:firefox": "wxt zip -b firefox --mv3",
+    "release:check": "npm run typecheck && npm test && npm run build:chrome && npm run build:firefox && npm run worker:build && npm run zip:chrome && npm run zip:firefox",
+    "sync:prices": "tsx scripts/sync-prices.ts",
+    "sync:prices:daemon": "tsx scripts/sync-prices.ts --daemon",
+    "worker:dev": "HOME=.wrangler-home wrangler dev worker/src/index.ts",
+    "worker:build": "HOME=.wrangler-home wrangler deploy --dry-run --env=\"\" --outdir .wrangler/dry-run worker/src/index.ts",
+    "pretest": "wxt prepare",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "npm run typecheck:extension && npm run typecheck:worker",
+    "typecheck:extension": "wxt prepare && tsc -p tsconfig.json --noEmit",
+    "typecheck:worker": "tsc -p tsconfig.worker.json --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.10.9",
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.554.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "webextension-polyfill": "^0.12.0",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.6",
+    "@types/react-dom": "^19.2.3",
+    "@wxt-dev/module-react": "^1.2.2",
+    "dotenv": "^17.4.2",
+    "jsdom": "^27.2.0",
+    "tsx": "^4.22.3",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.14",
+    "wrangler": "^4.50.0",
+    "wxt": "^0.20.26"
+  }
+}

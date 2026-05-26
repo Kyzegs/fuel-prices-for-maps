@@ -1,0 +1,64 @@
+name = "fuel-cost-api"
+main = "worker/src/index.ts"
+compatibility_date = "2025-11-21"
+
+[vars]
+# Comma-separated extension/store origins. Leave empty for public extension GET access.
+ALLOWED_ORIGINS = ""
+
+[[kv_namespaces]]
+binding = "PRICE_CACHE"
+id = "replace-with-production-kv-id"
+preview_id = "replace-with-preview-kv-id"
+
+[[unsafe.bindings]]
+name = "PRICE_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 10, period = 60 }
+
+[[unsafe.bindings]]
+name = "VEHICLE_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1002"
+simple = { limit = 2, period = 60 }
+
+[env.production.vars]
+# Extension origins are assigned by browser stores. Keep public GET CORS open
+# unless stable chrome-extension:// and moz-extension:// origins are known.
+ALLOWED_ORIGINS = ""
+
+[[env.production.kv_namespaces]]
+binding = "PRICE_CACHE"
+id = "replace-with-production-kv-id"
+
+[[env.production.unsafe.bindings]]
+name = "PRICE_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 10, period = 60 }
+
+[[env.production.unsafe.bindings]]
+name = "VEHICLE_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1002"
+simple = { limit = 2, period = 60 }
+
+[env.preview.vars]
+ALLOWED_ORIGINS = ""
+
+[[env.preview.kv_namespaces]]
+binding = "PRICE_CACHE"
+id = "replace-with-preview-kv-id"
+
+[[env.preview.unsafe.bindings]]
+name = "PRICE_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "2001"
+simple = { limit = 10, period = 60 }
+
+[[env.preview.unsafe.bindings]]
+name = "VEHICLE_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "2002"
+simple = { limit = 2, period = 60 }

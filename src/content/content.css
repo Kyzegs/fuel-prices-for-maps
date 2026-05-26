@@ -1,0 +1,12 @@
+.fuel-cost-inline {
+  color: #0f766e;
+  display: inline;
+  font: inherit;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.fuel-cost-inline[data-state="unavailable"] {
+  color: #9a3412;
+  font-weight: 600;
+}
