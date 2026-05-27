@@ -1,4 +1,4 @@
-name = "fuel-cost-api"
+name = "fuel-prices-for-maps"
 main = "worker/src/index.ts"
 compatibility_date = "2025-11-21"
 
@@ -8,8 +8,8 @@ ALLOWED_ORIGINS = ""
 
 [[kv_namespaces]]
 binding = "PRICE_CACHE"
-id = "replace-with-production-kv-id"
-preview_id = "replace-with-preview-kv-id"
+id = "e42aa97072cb4a8581459bdb667b484c"
+preview_id = "29b31cbe7e19447b8f04e2b00f311757"
 
 [[unsafe.bindings]]
 name = "PRICE_RATE_LIMITER"
@@ -30,7 +30,7 @@ ALLOWED_ORIGINS = ""
 
 [[env.production.kv_namespaces]]
 binding = "PRICE_CACHE"
-id = "replace-with-production-kv-id"
+id = "e42aa97072cb4a8581459bdb667b484c"
 
 [[env.production.unsafe.bindings]]
 name = "PRICE_RATE_LIMITER"
@@ -49,7 +49,7 @@ ALLOWED_ORIGINS = ""
 
 [[env.preview.kv_namespaces]]
 binding = "PRICE_CACHE"
-id = "replace-with-preview-kv-id"
+id = "29b31cbe7e19447b8f04e2b00f311757"
 
 [[env.preview.unsafe.bindings]]
 name = "PRICE_RATE_LIMITER"

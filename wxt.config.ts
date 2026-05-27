@@ -21,8 +21,8 @@ export default defineConfig({
     }
   }),
   manifest: ({ browser }) => ({
-    name: "Fuel Cost for Maps",
-    description: "Show route fuel cost in Google Maps with country-aware fuel prices.",
+    name: "Fuel Prices for Maps",
+    description: "Show route fuel cost in Google Maps with average fuel prices per country.",
     version: packageJson.version,
     permissions: ["storage"],
     host_permissions: [
@@ -30,7 +30,7 @@ export default defineConfig({
       apiHostPermission(resolveApiBaseUrl(process.env.WXT_API_BASE_URL))
     ],
     action: {
-      default_title: "Fuel Cost",
+      default_title: "Fuel Price",
       default_popup: "popup.html",
       default_icon: {
         "16": "/icon/16.png",

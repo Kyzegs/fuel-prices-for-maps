@@ -1,0 +1,19 @@
+name = "fuel-prices-for-maps-sync"
+main = "worker/src/sync.ts"
+compatibility_date = "2025-11-21"
+
+[triggers]
+crons = ["15 3 * * *"]
+
+[[kv_namespaces]]
+binding = "PRICE_CACHE"
+id = "e42aa97072cb4a8581459bdb667b484c"
+preview_id = "29b31cbe7e19447b8f04e2b00f311757"
+
+[[env.production.kv_namespaces]]
+binding = "PRICE_CACHE"
+id = "e42aa97072cb4a8581459bdb667b484c"
+
+[[env.preview.kv_namespaces]]
+binding = "PRICE_CACHE"
+id = "29b31cbe7e19447b8f04e2b00f311757"

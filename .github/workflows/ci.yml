@@ -10,7 +10,7 @@ jobs:
   release-check:
     runs-on: ubuntu-latest
     env:
-      WXT_API_BASE_URL: https://api.fuel-cost.app
+      WXT_API_BASE_URL: https://fuel-prices-for-maps-production.s-zegers.workers.dev
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

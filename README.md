@@ -1,4 +1,4 @@
-# Fuel Cost for Maps
+# Fuel Prices for Maps
 
 Chrome and Firefox extension that overlays selected-country fuel costs on Google Maps routes.
 
@@ -50,35 +50,29 @@ npm run release:check
 3. Deploy the Worker:
 
 ```bash
-wrangler deploy --env production
+npm run worker:deploy
 ```
+
+The Worker/API deployment does not need `WXT_API_BASE_URL`; that variable is only required when building the browser extension because the extension package needs to know the API URL at build time.
 
 `ALLOWED_ORIGINS` is intentionally empty by default, which makes public GET CORS open for extension clients whose browser-store origins are not known before publication.
 
-## Price Sync Job
+## Scheduled Price Sync Worker
 
-Fuel price imports run outside the public API Worker. Configure these environment variables in `.env` or your scheduler:
+Fuel price imports run in a separate sync-only Cloudflare Worker with a Cron Trigger. It has no public routes and writes to the same `PRICE_CACHE` KV namespace as the API Worker.
 
-```bash
-CLOUDFLARE_ACCOUNT_ID=...
-CLOUDFLARE_API_TOKEN=...
-CLOUDFLARE_KV_NAMESPACE_ID=...
-SYNC_INTERVAL_MINUTES=1440
-```
-
-Run once:
+Deploy it with:
 
 ```bash
-npm run sync:prices
+npm run sync-worker:deploy
 ```
 
-Run as a lightweight daemon:
+The cron schedule is configured in `wrangler.sync.toml` and runs daily at `03:15` UTC:
 
-```bash
-npm run sync:prices:daemon
+```toml
+[triggers]
+crons = ["15 3 * * *"]
 ```
-
-The daemon runs immediately, then repeats on `SYNC_INTERVAL_MINUTES`. It can also be replaced by cron, systemd, GitHub Actions, or another scheduler that runs `npm run sync:prices`.
 
 ## Public API
 
@@ -102,6 +96,8 @@ Cloudflare billing/usage alerts are still recommended; rate limits reduce abuse,
 ## Packaging
 
 ```bash
+WXT_API_BASE_URL=https://api.fuel-cost.app npm run build:extension
+WXT_API_BASE_URL=https://api.fuel-cost.app npm run release:check
 npm run zip:chrome
 npm run zip:firefox
 ```
@@ -110,6 +106,6 @@ Generated packages are written under `.output/`.
 
 ## Troubleshooting
 
-- If fuel prices are unavailable, check Worker `/health`, KV bindings, and the external sync job logs.
+- If fuel prices are unavailable, check Worker `/health`, KV bindings, and the sync Worker cron logs.
 - If Google Maps annotations disappear, reload the Maps tab; the content script observes route sidebar changes and re-annotates visible route distances.
 - If RDW lookup fails or returns no economy, enter fuel economy manually.
