@@ -115,6 +115,20 @@ p {
   color: #be123c;
 }
 
+.secondary-action {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  color: #0f766e;
+  cursor: pointer;
+  display: flex;
+  font-weight: 800;
+  gap: 8px;
+  justify-content: center;
+  min-height: 38px;
+}
+
 .price-hero {
   align-items: end;
   background: #f0fdfa;
@@ -135,13 +149,6 @@ p {
   color: #0f766e;
   font-size: 21px;
   line-height: 1;
-}
-
-.manual-price-row {
-  align-items: end;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 1fr 82px 32px;
 }
 
 .price-list {
@@ -234,6 +241,58 @@ select {
   gap: 8px;
 }
 
+.vehicle-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.vehicle-list li {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #d8e1eb;
+  border-radius: 7px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) 32px;
+  padding: 6px;
+}
+
+.vehicle-list li[data-selected="true"] {
+  background: #eef6f5;
+  border-color: #99d6d0;
+}
+
+.vehicle-select {
+  background: transparent;
+  border: 0;
+  color: #102033;
+  cursor: pointer;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.vehicle-select strong,
+.vehicle-select span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vehicle-select strong {
+  font-size: 13px;
+}
+
+.vehicle-select span {
+  color: #64748b;
+  font-size: 12px;
+}
+
 .primary {
   align-items: center;
   background: #0f766e;
@@ -259,7 +318,23 @@ select {
 
 footer {
   color: #52657a;
+  display: grid;
   font-size: 12px;
+  gap: 4px;
   min-height: 16px;
   padding: 0 2px;
+}
+
+footer a {
+  color: #0f766e;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+footer a:hover {
+  text-decoration: underline;
+}
+
+.issue-note {
+  color: #64748b;
 }

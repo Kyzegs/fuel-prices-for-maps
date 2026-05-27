@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { CarFront, Fuel, RefreshCw, Route, Save, Trash2 } from "lucide-react";
+import browser from "webextension-polyfill";
+import { CarFront, Fuel, RefreshCw, Route, Settings, Trash2 } from "lucide-react";
 import { lookupVehicle } from "../../src/shared/api";
-import { applyOverride } from "../../src/shared/fuel";
 import { getDailyPrice } from "../../src/shared/priceCache";
 import { DEFAULT_SETTINGS } from "../../src/shared/settings";
 import { useSettingsState } from "../../src/shared/useSettingsState";
@@ -13,6 +13,7 @@ import {
   SUPPORTED_PRICE_COUNTRIES,
   type EconomyUnit,
   type PriceQuote,
+  type SavedVehicle,
   type UserSettings
 } from "../../src/shared/types";
 import "./style.css";
@@ -22,37 +23,24 @@ export function Popup() {
   const [economyValue, setEconomyValue] = useState(String(DEFAULT_SETTINGS.economy.value));
   const [prices, setPrices] = useState<PriceQuote[]>([]);
   const [priceStatus, setPriceStatus] = useState("Loading prices");
-  const [manualPriceValue, setManualPriceValue] = useState("");
   const [plate, setPlate] = useState("");
 
   useEffect(() => {
     if (isLoading) return;
     setEconomyValue(String(settings.economy.value));
-    setPlate(settings.savedPlate || "");
+    setPlate(settings.savedVehicles.find((vehicle) => vehicle.id === settings.selectedVehicleId)?.plate || "");
+  }, [isLoading, settings.economy.value, settings.savedVehicles, settings.selectedVehicleId]);
+
+  useEffect(() => {
+    if (isLoading) return;
     void loadPrices(settings);
   }, [isLoading]);
 
   const canLookup = useMemo(() => plate.trim().length >= 4, [plate]);
   const selectedPrice = prices[0]?.fuel === settings.fuelType ? prices[0] : undefined;
-  const currentOverride = useMemo(
-    () =>
-      settings.overrides.find(
-        (override) =>
-          override.country.toUpperCase() === settings.country.toUpperCase() &&
-          override.fuel === settings.fuelType
-      ),
-    [settings.country, settings.fuelType, settings.overrides]
+  const selectedVehicle = settings.savedVehicles.find(
+    (vehicle) => vehicle.id === settings.selectedVehicleId
   );
-
-  useEffect(() => {
-    setManualPriceValue(
-      currentOverride?.pricePerLiter !== undefined
-        ? String(currentOverride.pricePerLiter)
-        : selectedPrice?.pricePerLiter !== undefined
-          ? String(selectedPrice.pricePerLiter)
-          : ""
-    );
-  }, [currentOverride, selectedPrice?.pricePerLiter]);
 
   async function persistAndRefresh(next: UserSettings, message = "Saved") {
     await persist(next, message);
@@ -67,9 +55,8 @@ export function Popup() {
         currentSettings.fuelType,
         { refresh }
       );
-      const price = basePrice ? applyOverride(basePrice, currentSettings.overrides) : undefined;
-      setPrices(price ? [price] : []);
-      setPriceStatus(formatPriceStatus(price, currentSettings.country));
+      setPrices(basePrice ? [basePrice] : []);
+      setPriceStatus(formatPriceStatus(basePrice, currentSettings.country));
     } catch (error) {
       setPrices([]);
       setPriceStatus(error instanceof Error ? error.message : "Price fetch failed");
@@ -85,11 +72,27 @@ export function Popup() {
         plate.trim()
       );
       if (response.economy) {
+        const country = settings.plateCountry.toUpperCase();
+        const normalizedPlate = normalizePlate(response.plate || plate);
+        const vehicle: SavedVehicle = {
+          id: makeVehicleId(country, normalizedPlate),
+          country,
+          plate: normalizedPlate,
+          model: response.model,
+          economy: response.economy
+        };
+        const savedVehicles = [
+          ...settings.savedVehicles.filter((item) => item.id !== vehicle.id),
+          vehicle
+        ];
+
         setEconomyValue(String(response.economy.value));
+        setPlate(vehicle.plate);
         await persistAndRefresh({
           ...settings,
           economy: response.economy,
-          savedPlate: settings.savePlate ? plate.trim() : undefined
+          savedVehicles,
+          selectedVehicleId: vehicle.id
         }, response.model ? `Loaded ${response.model}` : "Economy loaded");
         setStatus(response.model ? `Loaded ${response.model}` : "Economy loaded");
       } else {
@@ -100,61 +103,45 @@ export function Popup() {
     }
   }
 
-  async function saveManualPrice() {
-    const pricePerLiter = Number(manualPriceValue);
-    if (
-      manualPriceValue.trim() === "" ||
-      !Number.isFinite(pricePerLiter) ||
-      pricePerLiter < 0
-    ) {
-      setStatus("Enter a valid fuel price");
-      return;
-    }
+  function updateEconomyValue(nextValue: string) {
+    setEconomyValue(nextValue);
 
-    await persistAndRefresh({
-      ...settings,
-      overrides: [
-        ...settings.overrides.filter(
-          (override) =>
-            !(
-              override.country.toUpperCase() === settings.country.toUpperCase() &&
-              override.fuel === settings.fuelType
-            )
-        ),
-        {
-          country: settings.country.toUpperCase(),
-          fuel: settings.fuelType,
-          pricePerLiter,
-          currency: settings.currency.toUpperCase()
-        }
-      ]
-    }, "Manual fuel price saved");
-  }
-
-  async function removeManualPrice() {
-    await persistAndRefresh({
-      ...settings,
-      overrides: settings.overrides.filter(
-        (override) =>
-          !(
-            override.country.toUpperCase() === settings.country.toUpperCase() &&
-            override.fuel === settings.fuelType
-          )
-      )
-    }, "Manual fuel price removed");
-  }
-
-  async function saveEconomyValue() {
-    const numericValue = Number(economyValue);
-    if (economyValue.trim() === "" || !Number.isFinite(numericValue) || numericValue <= 0) {
+    const numericValue = Number(nextValue);
+    if (nextValue.trim() === "" || !Number.isFinite(numericValue) || numericValue <= 0) {
       setStatus("Enter a valid fuel economy");
       return;
     }
 
-    await persistAndRefresh({
+    if (numericValue === settings.economy.value && !settings.selectedVehicleId) return;
+
+    void persist({
       ...settings,
-      economy: { ...settings.economy, value: numericValue }
+      economy: { ...settings.economy, value: numericValue },
+      selectedVehicleId: undefined
     });
+  }
+
+  function selectVehicle(vehicle: SavedVehicle) {
+    setEconomyValue(String(vehicle.economy.value));
+    setPlate(vehicle.plate);
+    void persist({
+      ...settings,
+      economy: vehicle.economy,
+      plateCountry: vehicle.country,
+      selectedVehicleId: vehicle.id
+    }, vehicle.model ? `Selected ${vehicle.model}` : `Selected ${vehicle.plate}`);
+  }
+
+  function removeVehicle(vehicleId: string) {
+    void persist({
+      ...settings,
+      savedVehicles: settings.savedVehicles.filter((vehicle) => vehicle.id !== vehicleId),
+      selectedVehicleId: settings.selectedVehicleId === vehicleId ? undefined : settings.selectedVehicleId
+    }, "Plate removed");
+  }
+
+  async function openOptions() {
+    await browser.runtime.openOptionsPage();
   }
 
   return (
@@ -168,6 +155,11 @@ export function Popup() {
           <p>Google Maps trip estimates with selected-country fuel prices.</p>
         </div>
       </header>
+
+      <button className="secondary-action" type="button" onClick={openOptions}>
+        <Settings size={16} />
+        Manage settings
+      </button>
 
       <section className="panel">
         <div className="section-title row-between">
@@ -187,31 +179,6 @@ export function Popup() {
         <div className="price-hero">
           <span>{FUEL_LABELS[settings.fuelType]}</span>
           <strong>{formatPrice(selectedPrice)}</strong>
-        </div>
-        <div className="manual-price-row">
-          <label>
-            <span>Manual price/L</span>
-            <input
-              inputMode="decimal"
-              min="0"
-              step="0.01"
-              type="number"
-              value={manualPriceValue}
-              onChange={(event) => setManualPriceValue(event.target.value)}
-            />
-          </label>
-          <button className="primary compact" onClick={saveManualPrice}>
-            <Save size={15} />
-            Save
-          </button>
-          <button
-            className="icon-button danger"
-            aria-label="Remove manual price"
-            disabled={!currentOverride}
-            onClick={removeManualPrice}
-          >
-            <Trash2 size={15} />
-          </button>
         </div>
         <p className="muted">{priceStatus}</p>
       </section>
@@ -265,10 +232,7 @@ export function Popup() {
               step="0.1"
               type="number"
               value={economyValue}
-              onChange={(event) => {
-                const nextValue = event.target.value;
-                setEconomyValue(nextValue);
-              }}
+              onChange={(event) => updateEconomyValue(event.target.value)}
             />
           </label>
           <label>
@@ -276,9 +240,10 @@ export function Popup() {
             <select
               value={settings.economy.unit}
               onChange={(event) =>
-                persistAndRefresh({
+                persist({
                   ...settings,
-                  economy: { ...settings.economy, unit: event.target.value as EconomyUnit }
+                  economy: { ...settings.economy, unit: event.target.value as EconomyUnit },
+                  selectedVehicleId: undefined
                 })
               }
             >
@@ -289,10 +254,6 @@ export function Popup() {
             </select>
           </label>
         </div>
-        <button className="primary compact" onClick={saveEconomyValue}>
-          <Save size={15} />
-          Save economy
-        </button>
       </section>
 
       <section className="panel">
@@ -300,6 +261,11 @@ export function Popup() {
           <CarFront size={17} />
           <h2>Vehicle lookup</h2>
         </div>
+        {selectedVehicle ? (
+          <p className="muted">Using {selectedVehicle.plate}</p>
+        ) : (
+          <p className="muted">Manual fuel economy</p>
+        )}
         <div className="split country-plate">
           <label>
             <span>Country</span>
@@ -321,30 +287,53 @@ export function Popup() {
             <input value={plate} onChange={(event) => setPlate(event.target.value)} />
           </label>
         </div>
-        <label className="toggle">
-          <input
-            checked={settings.savePlate}
-            type="checkbox"
-            onChange={(event) =>
-              persistAndRefresh({
-                ...settings,
-                savePlate: event.target.checked,
-                savedPlate: event.target.checked ? plate.trim() : undefined
-              })
-            }
-          />
-          <span>
-            <Save size={16} />
-            Save plate locally
-          </span>
-        </label>
         <button className="primary" disabled={!canLookup} onClick={onLookup}>
           <Route size={16} />
           Fetch economy
         </button>
+        {settings.savedVehicles.length > 0 ? (
+          <ul className="vehicle-list">
+            {settings.savedVehicles.map((vehicle) => (
+              <li key={vehicle.id} data-selected={vehicle.id === settings.selectedVehicleId}>
+                <button
+                  className="vehicle-select"
+                  type="button"
+                  aria-pressed={vehicle.id === settings.selectedVehicleId}
+                  onClick={() => selectVehicle(vehicle)}
+                >
+                  <strong>{vehicle.plate}</strong>
+                  <span>
+                    {vehicle.model || vehicle.country} · {formatEconomy(vehicle.economy)}
+                  </span>
+                </button>
+                <button
+                  className="icon-button danger"
+                  type="button"
+                  aria-label={`Remove ${vehicle.plate}`}
+                  onClick={() => removeVehicle(vehicle.id)}
+                >
+                  <Trash2 size={15} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </section>
 
-      <footer>{status}</footer>
+      <footer>
+        <span>{status}</span>
+        <span className="issue-note">
+          Issues? Open them on{" "}
+          <a
+            href="https://github.com/Kyzegs/fuel-prices-for-maps/issues"
+            rel="noreferrer"
+            target="_blank"
+          >
+            GitHub
+          </a>
+          .
+        </span>
+      </footer>
     </main>
   );
 }
@@ -364,7 +353,25 @@ function formatPrice(price: PriceQuote | undefined): string {
 
 function formatPriceStatus(price: PriceQuote | undefined, country: string): string {
   if (!price) return "Price unavailable";
-  if (price.source === "override") return `Manual override for ${country}`;
   if (!price.available) return price.diagnostics?.message || "Price unavailable";
   return price.diagnostics?.message || `Daily average for ${country}`;
+}
+
+function formatEconomy(economy: SavedVehicle["economy"]): string {
+  const unitLabels: Record<EconomyUnit, string> = {
+    l_per_100km: "L/100 km",
+    km_per_l: "km/L",
+    mpg_us: "MPG US",
+    mpg_imp: "MPG UK"
+  };
+
+  return `${economy.value} ${unitLabels[economy.unit]}`;
+}
+
+function normalizePlate(plate: string): string {
+  return plate.replace(/[^a-z0-9]/gi, "").toUpperCase();
+}
+
+function makeVehicleId(country: string, plate: string): string {
+  return `${country}:${plate}`;
 }

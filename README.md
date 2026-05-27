@@ -7,7 +7,7 @@ Chrome and Firefox extension that overlays selected-country fuel costs on Google
 - Detects visible driving-route distances in Google Maps.
 - Shows an inline trip fuel-cost estimate next to each route distance.
 - Uses European Commission Weekly Oil Bulletin prices for EU gasoline 95, diesel, and LPG.
-- Lets users set fuel economy, country, fuel type, and manual country/fuel price overrides.
+- Lets users set fuel economy, country, fuel type, and display currency.
 - Optionally looks up Dutch RDW vehicle economy by license plate. Saved plates stay in local extension storage only.
 
 ## Stack

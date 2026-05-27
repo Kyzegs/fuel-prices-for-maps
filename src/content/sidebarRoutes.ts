@@ -10,14 +10,12 @@ export interface ParsedDistance {
 
 const DISTANCE_PATTERN =
   /(^|\s)(?<value>\d+(?:(?:[.,]\d+)+)?)\s*(?<unit>km|kilometers?|mi|miles?)($|\s)/i;
-const CAR_MODE_PATTERN = /\b(driv(?:e|ing)|car|automobile)\b/i;
-const NON_CAR_MODE_PATTERN =
-  /\b(walk(?:ing)?|pedestrian|bike|biking|bicycle|bicycling|cycling)\b/i;
+const CAR_MODE_ICON_PATTERN = /\ue531/;
+const NON_CAR_MODE_ICON_PATTERN = /[\ue52f\ue536]/;
 const SELECTED_MODE_SELECTOR =
   '[aria-checked="true"], [aria-pressed="true"], [aria-selected="true"], [data-selected="true"]';
 const ROUTE_SECTION_SELECTOR = [
   "[aria-label]",
-  "[data-travel-mode]",
   '[role="listitem"]',
   '[role="button"]'
 ].join(", ");
@@ -54,13 +52,16 @@ export function findDistanceElements(root: ParentNode = document): HTMLElement[]
 
   return elements.filter((element) => {
     if (element.closest(`.${FUEL_COST_CLASS}`)) return false;
-    if (element.matches('[aria-hidden="true"]')) return false;
-    if (!isVisible(element)) return false;
 
     const ownText = getOwnText(element);
     const candidateText = ownText || element.textContent || "";
     if (!parseDistanceText(candidateText)) return false;
-    if (!isCarRouteDistanceElement(element, root)) return false;
+    if (!isCarRouteDistanceElement(element, root)) {
+      removeAnnotation(element);
+      return false;
+    }
+    if (element.matches('[aria-hidden="true"]')) return false;
+    if (!isVisible(element)) return false;
 
     return !Array.from(element.children).some((child) =>
       parseDistanceText(child.textContent || "")
@@ -153,19 +154,22 @@ function findRouteSectionMode(element: HTMLElement): "car" | "non-car" | undefin
 }
 
 function getModeFromElement(element: HTMLElement): "car" | "non-car" | undefined {
-  const text = [
-    element.getAttribute("aria-label"),
-    element.getAttribute("title"),
-    element.getAttribute("data-tooltip"),
-    element.getAttribute("data-travel-mode"),
-    element.textContent
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const iconText = getGoogleSymbolsText(element);
+  if (NON_CAR_MODE_ICON_PATTERN.test(iconText)) return "non-car";
+  if (CAR_MODE_ICON_PATTERN.test(iconText)) return "car";
 
-  if (NON_CAR_MODE_PATTERN.test(text) && !CAR_MODE_PATTERN.test(text)) return "non-car";
-  if (CAR_MODE_PATTERN.test(text)) return "car";
   return undefined;
+}
+
+function getGoogleSymbolsText(element: HTMLElement): string {
+  const icons = [
+    ...(element.matches(".google-symbols") ? [element] : []),
+    ...Array.from(element.querySelectorAll<HTMLElement>(".google-symbols"))
+  ];
+
+  return icons
+    .map((icon) => icon.textContent || "")
+    .join("");
 }
 
 function getAncestors(element: HTMLElement): HTMLElement[] {

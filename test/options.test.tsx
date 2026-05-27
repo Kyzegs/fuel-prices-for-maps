@@ -9,11 +9,9 @@ describe("options settings UX", () => {
 
     expect(screen.queryByLabelText("Backend API URL")).not.toBeInTheDocument();
 
-    const currencyInput = (await screen.findAllByLabelText("Currency"))[0];
-    fireEvent.change(currencyInput, { target: { value: "EU" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
-
-    expect(screen.getByText("Enter a 3-letter currency code")).toBeInTheDocument();
+    const currencyInput = (await screen.findAllByLabelText("Currency"))[0] as HTMLSelectElement;
+    expect(currencyInput.tagName).toBe("SELECT");
+    expect(screen.getByRole("option", { name: "EUR" })).toBeInTheDocument();
 
     fireEvent.change(currencyInput, { target: { value: "EUR" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));

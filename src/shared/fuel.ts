@@ -1,6 +1,5 @@
 import type {
   FuelEconomy,
-  ManualPriceOverride,
   PriceQuote
 } from "./types";
 
@@ -35,27 +34,6 @@ export function costForDistance(
   pricePerLiter: number
 ): number {
   return round(litersForDistance(distanceKm, economy) * pricePerLiter, 2);
-}
-
-export function applyOverride(
-  price: PriceQuote,
-  overrides: ManualPriceOverride[]
-): PriceQuote {
-  const override = overrides.find(
-    (item) =>
-      item.country.toUpperCase() === price.country.toUpperCase() &&
-      item.fuel === price.fuel
-  );
-
-  if (!override) return price;
-
-  return {
-    ...price,
-    available: true,
-    pricePerLiter: override.pricePerLiter,
-    currency: override.currency,
-    source: "override"
-  };
 }
 
 export function round(value: number, decimals: number): number {

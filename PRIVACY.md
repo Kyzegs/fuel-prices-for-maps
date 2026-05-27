@@ -7,7 +7,6 @@ Fuel Cost for Maps does not create accounts, track browsing history, or sell dat
 The extension stores settings in browser extension storage:
 
 - selected country, fuel type, currency, and fuel economy;
-- manual fuel-price overrides;
 - optional saved Dutch license plate, only when "Save plate locally" is enabled.
 
 Saved settings remain on the user's device/browser profile unless browser sync is enabled by the browser.

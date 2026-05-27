@@ -10,7 +10,8 @@ vi.mock("webextension-polyfill", () => ({
     runtime: {
       onInstalled: {
         addListener: vi.fn()
-      }
+      },
+      openOptionsPage: vi.fn()
     },
     storage: {
       local: {

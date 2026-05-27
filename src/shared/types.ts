@@ -60,6 +60,10 @@ export const SUPPORTED_PRICE_COUNTRIES = [
   { code: "SE", label: "Sweden", currency: "EUR" }
 ] as const;
 
+export const SUPPORTED_CURRENCIES = Array.from(
+  new Set(SUPPORTED_PRICE_COUNTRIES.map((country) => country.currency))
+).sort();
+
 export type SupportedPlateCountry = (typeof SUPPORTED_PLATE_COUNTRIES)[number]["code"];
 
 export type EconomyUnit = "l_per_100km" | "km_per_l" | "mpg_us" | "mpg_imp";
@@ -69,11 +73,12 @@ export interface FuelEconomy {
   unit: EconomyUnit;
 }
 
-export interface ManualPriceOverride {
+export interface SavedVehicle {
+  id: string;
   country: string;
-  fuel: FuelType;
-  pricePerLiter: number;
-  currency: string;
+  plate: string;
+  model?: string;
+  economy: FuelEconomy;
 }
 
 export interface UserSettings {
@@ -81,10 +86,9 @@ export interface UserSettings {
   currency: string;
   fuelType: FuelType;
   economy: FuelEconomy;
-  overrides: ManualPriceOverride[];
   plateCountry: string;
-  savedPlate?: string;
-  savePlate: boolean;
+  savedVehicles: SavedVehicle[];
+  selectedVehicleId?: string;
 }
 
 export interface RouteInput {
@@ -99,7 +103,7 @@ export interface PriceQuote {
   available: boolean;
   pricePerLiter?: number;
   currency: string;
-  source: "provider" | "override" | "fallback" | "unavailable";
+  source: "provider" | "fallback" | "unavailable";
   updatedAt?: string;
   diagnostics?: {
     provider: string;

@@ -1,4 +1,3 @@
-import { applyOverride } from "../src/shared/fuel";
 import { getDailyPrice } from "../src/shared/priceCache";
 import { getSettings, SETTINGS_KEY } from "../src/shared/settings";
 import {
@@ -56,10 +55,8 @@ async function annotateVisibleRoutes(requestId: number, getCurrentRequestId: () 
     settings.fuelType
   ).catch(() => undefined);
 
-  const price = basePrice ? applyOverride(basePrice, settings.overrides) : undefined;
-
   if (requestId !== getCurrentRequestId()) return;
   for (const element of elements) {
-    annotateDistanceElement(element, settings, price);
+    annotateDistanceElement(element, settings, basePrice);
   }
 }
