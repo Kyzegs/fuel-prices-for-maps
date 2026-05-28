@@ -1,4 +1,4 @@
-import { costForDistance } from "../shared/fuel";
+import { litersForDistance, refuelsForDistance, round } from "../shared/fuel";
 import type { PriceQuote, UserSettings } from "../shared/types";
 
 export const FUEL_COST_CLASS = "fuel-cost-inline";
@@ -89,8 +89,23 @@ export function annotateDistanceElement(
     return;
   }
 
-  const cost = costForDistance(distance.distanceKm, settings.economy, price.pricePerLiter);
-  annotation.textContent = `(${formatCurrency(cost, price.currency || settings.currency)})`;
+  const liters = litersForDistance(distance.distanceKm, settings.economy);
+  const cost = round(liters * price.pricePerLiter, 2);
+  const details = [formatCurrency(cost, price.currency || settings.currency)];
+
+  if (settings.showFuelLiters) details.push(formatLiters(liters));
+
+  if (settings.showRefuelsNeeded) {
+    const refuels = refuelsForDistance(
+      distance.distanceKm,
+      settings.economy,
+      settings.tankCapacityLiters,
+      settings.rangeKm
+    );
+    if (refuels > 0) details.push(`${refuels} ${refuels === 1 ? "refuel" : "refuels"}`);
+  }
+
+  annotation.textContent = `(${details.join(" · ")})`;
   annotation.dataset.state = "ready";
 }
 
@@ -211,4 +226,11 @@ function formatCurrency(value: number, currency: string): string {
     currency,
     maximumFractionDigits: 2
   }).format(value);
+}
+
+function formatLiters(value: number): string {
+  return `${new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: 1,
+    minimumFractionDigits: value < 10 ? 1 : 0
+  }).format(value)} L`;
 }

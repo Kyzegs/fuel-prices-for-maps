@@ -186,6 +186,74 @@ describe("Google Maps sidebar distance parsing", () => {
     expect(distance.textContent).toContain("€1.30");
   });
 
+  it("renders cost only when detail toggles are off", () => {
+    const element = document.createElement("div");
+    element.textContent = "10 km";
+
+    annotateDistanceElement(element, settings, price);
+
+    expect(element.textContent).toContain("(€1.30)");
+    expect(element.textContent).not.toContain("L");
+    expect(element.textContent).not.toContain("refuel");
+  });
+
+  it("renders liters when enabled", () => {
+    const element = document.createElement("div");
+    element.textContent = "10 km";
+
+    annotateDistanceElement(element, { ...settings, showFuelLiters: true }, price);
+
+    expect(element.textContent).toContain("€1.30");
+    expect(element.textContent).toContain("0.7 L");
+  });
+
+  it("renders refuels only when above zero", () => {
+    const shortRoute = document.createElement("div");
+    shortRoute.textContent = "10 km";
+    const longRoute = document.createElement("div");
+    longRoute.textContent = "800 km";
+
+    annotateDistanceElement(
+      shortRoute,
+      { ...settings, showRefuelsNeeded: true, tankCapacityLiters: 50 },
+      price
+    );
+    annotateDistanceElement(
+      longRoute,
+      { ...settings, showRefuelsNeeded: true, tankCapacityLiters: 50 },
+      price
+    );
+
+    expect(shortRoute.textContent).not.toContain("refuel");
+    expect(longRoute.textContent).toContain("1 refuel");
+  });
+
+  it("renders plural refuels", () => {
+    const element = document.createElement("div");
+    element.textContent = "1600 km";
+
+    annotateDistanceElement(
+      element,
+      { ...settings, showRefuelsNeeded: true, tankCapacityLiters: 50 },
+      price
+    );
+
+    expect(element.textContent).toContain("2 refuels");
+  });
+
+  it("uses range before tank capacity for refuels", () => {
+    const element = document.createElement("div");
+    element.textContent = "900 km";
+
+    annotateDistanceElement(
+      element,
+      { ...settings, showRefuelsNeeded: true, tankCapacityLiters: 50, rangeKm: 300 },
+      price
+    );
+
+    expect(element.textContent).toContain("2 refuels");
+  });
+
   it("ignores duration-only labels", () => {
     expect(parseDistanceText("2 hr 10 min")).toBeNull();
   });
@@ -196,6 +264,10 @@ const settings: UserSettings = {
   currency: "EUR",
   fuelType: "gasoline_95",
   economy: { value: 6.5, unit: "l_per_100km" },
+  showFuelLiters: false,
+  showRefuelsNeeded: false,
+  tankCapacityLiters: null,
+  rangeKm: null,
   plateCountry: "NL",
   savedVehicles: []
 };

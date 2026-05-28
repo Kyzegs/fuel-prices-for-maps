@@ -6,9 +6,7 @@ import type { VehicleProvider } from "../providers";
 
 const VEHICLE_DATASET_URL = "https://opendata.rdw.nl/resource/m9d7-ebf2.json";
 const FUEL_DATASET_URL = "https://opendata.rdw.nl/resource/8ys7-d773.json";
-const WLTP_FUEL_DATASET_URL = "https://opendata.rdw.nl/resource/7ich-qprq.json";
-
-type RdwRecord = Record<string, string | undefined>;
+type RdwRecord = Record<string, string | number | undefined>;
 
 export async function lookupVehicleEconomy(
   country: string,
@@ -38,7 +36,18 @@ export async function lookupVehicleEconomy(
 
   const fuelRecords = await fetchFuelRecords(normalizedPlate);
   const combined = fuelRecords
-    .map((fuel) => parseNumber(fuel.brandstofverbruik_gecombineerd))
+    .flatMap((fuel) => [
+      parseNumber(fuel.brandstof_verbruik_gecombineerd_wltp),
+      parseNumber(fuel.brandstofverbruik_gecombineerd)
+    ])
+    .find((value): value is number => value !== undefined);
+  const rangeKm = fuelRecords
+    .flatMap((fuel) => [
+      parseNumber(fuel.actieradius),
+      parseNumber(fuel.actieradius_extern_oplaadbaar),
+      parseNumber(fuel.actie_radius_enkel_elektrisch_wltp),
+      parseNumber(fuel.actie_radius_extern_opladen_wltp)
+    ])
     .find((value): value is number => value !== undefined);
 
   if (!combined) {
@@ -59,7 +68,8 @@ export async function lookupVehicleEconomy(
     economy: {
       value: combined,
       unit: "l_per_100km"
-    }
+    },
+    rangeKm
   };
 }
 
@@ -69,12 +79,7 @@ export const rdwVehicleProvider: VehicleProvider = {
 };
 
 async function fetchFuelRecords(plate: string): Promise<RdwRecord[]> {
-  const [fuelRecords, wltpFuelRecords] = await Promise.all([
-    fetchRdwRecords(FUEL_DATASET_URL, plate, 5),
-    fetchRdwRecords(WLTP_FUEL_DATASET_URL, plate, 5)
-  ]);
-
-  return [...fuelRecords, ...wltpFuelRecords];
+  return fetchRdwRecords(FUEL_DATASET_URL, plate, 5);
 }
 
 async function fetchRdwRecords(
@@ -94,8 +99,8 @@ async function fetchRdwRecords(
   return (await response.json()) as RdwRecord[];
 }
 
-function parseNumber(value?: string): number | undefined {
+function parseNumber(value?: string | number): number | undefined {
   if (!value) return undefined;
-  const parsed = Number(value.replace(",", "."));
+  const parsed = typeof value === "number" ? value : Number(value.replace(",", "."));
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }

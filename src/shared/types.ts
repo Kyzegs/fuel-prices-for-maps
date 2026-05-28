@@ -79,6 +79,9 @@ export interface SavedVehicle {
   plate: string;
   model?: string;
   economy: FuelEconomy;
+  refuelMode?: "tank" | "range";
+  tankCapacityLiters?: number | null;
+  rangeKm?: number | null;
 }
 
 export interface UserSettings {
@@ -86,6 +89,10 @@ export interface UserSettings {
   currency: string;
   fuelType: FuelType;
   economy: FuelEconomy;
+  showFuelLiters: boolean;
+  showRefuelsNeeded: boolean;
+  tankCapacityLiters: number | null;
+  rangeKm?: number | null;
   plateCountry: string;
   savedVehicles: SavedVehicle[];
   selectedVehicleId?: string;
@@ -125,5 +132,7 @@ export interface VehicleLookupResponse {
   plate?: string;
   model?: string;
   economy?: FuelEconomy;
+  tankCapacityLiters?: number;
+  rangeKm?: number;
   message?: string;
 }

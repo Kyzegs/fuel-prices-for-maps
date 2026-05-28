@@ -79,7 +79,10 @@ export function Popup() {
           country,
           plate: normalizedPlate,
           model: response.model,
-          economy: response.economy
+          economy: response.economy,
+          refuelMode: response.rangeKm ? "range" : "tank",
+          tankCapacityLiters: response.tankCapacityLiters ?? null,
+          rangeKm: response.rangeKm ?? null
         };
         const savedVehicles = [
           ...settings.savedVehicles.filter((item) => item.id !== vehicle.id),
@@ -91,6 +94,8 @@ export function Popup() {
         await persistAndRefresh({
           ...settings,
           economy: response.economy,
+          tankCapacityLiters: activeTankCapacity(vehicle),
+          rangeKm: activeRange(vehicle),
           savedVehicles,
           selectedVehicleId: vehicle.id
         }, response.model ? `Loaded ${response.model}` : "Economy loaded");
@@ -117,6 +122,8 @@ export function Popup() {
     void persist({
       ...settings,
       economy: { ...settings.economy, value: numericValue },
+      tankCapacityLiters: null,
+      rangeKm: null,
       selectedVehicleId: undefined
     });
   }
@@ -127,16 +134,74 @@ export function Popup() {
     void persist({
       ...settings,
       economy: vehicle.economy,
+      tankCapacityLiters: activeTankCapacity(vehicle),
+      rangeKm: activeRange(vehicle),
       plateCountry: vehicle.country,
       selectedVehicleId: vehicle.id
     }, vehicle.model ? `Selected ${vehicle.model}` : `Selected ${vehicle.plate}`);
   }
 
+  function updateVehicle(vehicle: SavedVehicle, patch: Partial<SavedVehicle>) {
+    const nextVehicle = { ...vehicle, ...patch };
+    void persist({
+      ...settings,
+      economy: settings.selectedVehicleId === vehicle.id ? nextVehicle.economy : settings.economy,
+      tankCapacityLiters: settings.selectedVehicleId === vehicle.id
+        ? activeTankCapacity(nextVehicle)
+        : settings.tankCapacityLiters,
+      rangeKm: settings.selectedVehicleId === vehicle.id
+        ? activeRange(nextVehicle)
+        : settings.rangeKm,
+      savedVehicles: settings.savedVehicles.map((item) =>
+        item.id === vehicle.id ? nextVehicle : item
+      )
+    });
+  }
+
+  function updateVehicleEconomy(vehicle: SavedVehicle, nextValue: string) {
+    const value = Number(nextValue);
+    if (!Number.isFinite(value) || value <= 0) return;
+    updateVehicle(vehicle, {
+      economy: {
+        ...vehicle.economy,
+        value
+      }
+    });
+  }
+
+  function updateVehicleTankCapacity(vehicle: SavedVehicle, nextValue: string) {
+    if (nextValue.trim() === "") {
+      updateVehicle(vehicle, { tankCapacityLiters: null });
+      return;
+    }
+    const tankCapacityLiters = Number(nextValue);
+    if (!Number.isFinite(tankCapacityLiters) || tankCapacityLiters <= 0) return;
+    updateVehicle(vehicle, { tankCapacityLiters });
+  }
+
+  function updateVehicleRefuelMode(vehicle: SavedVehicle, refuelMode: NonNullable<SavedVehicle["refuelMode"]>) {
+    updateVehicle(vehicle, { refuelMode });
+  }
+
+  function updateVehicleRange(vehicle: SavedVehicle, nextValue: string) {
+    if (nextValue.trim() === "") {
+      updateVehicle(vehicle, { rangeKm: null });
+      return;
+    }
+    const rangeKm = Number(nextValue);
+    updateVehicle(vehicle, {
+      rangeKm: Number.isFinite(rangeKm) && rangeKm > 0 ? rangeKm : null
+    });
+  }
+
   function removeVehicle(vehicleId: string) {
+    const isSelectedVehicle = settings.selectedVehicleId === vehicleId;
     void persist({
       ...settings,
       savedVehicles: settings.savedVehicles.filter((vehicle) => vehicle.id !== vehicleId),
-      selectedVehicleId: settings.selectedVehicleId === vehicleId ? undefined : settings.selectedVehicleId
+      tankCapacityLiters: isSelectedVehicle ? null : settings.tankCapacityLiters,
+      rangeKm: isSelectedVehicle ? null : settings.rangeKm,
+      selectedVehicleId: isSelectedVehicle ? undefined : settings.selectedVehicleId
     }, "Plate removed");
   }
 
@@ -243,6 +308,8 @@ export function Popup() {
                 persist({
                   ...settings,
                   economy: { ...settings.economy, unit: event.target.value as EconomyUnit },
+                  tankCapacityLiters: null,
+                  rangeKm: null,
                   selectedVehicleId: undefined
                 })
               }
@@ -304,6 +371,8 @@ export function Popup() {
                   <strong>{vehicle.plate}</strong>
                   <span>
                     {vehicle.model || vehicle.country} · {formatEconomy(vehicle.economy)}
+                    {refuelModeFor(vehicle) === "range" && vehicle.rangeKm ? ` · ${formatRange(vehicle.rangeKm)}` : ""}
+                    {refuelModeFor(vehicle) === "tank" && vehicle.tankCapacityLiters ? ` · ${formatTankCapacity(vehicle.tankCapacityLiters)}` : ""}
                   </span>
                 </button>
                 <button
@@ -314,6 +383,70 @@ export function Popup() {
                 >
                   <Trash2 size={15} />
                 </button>
+                <div className="vehicle-fields">
+                  <label>
+                    <span>Vehicle economy</span>
+                    <input
+                      aria-label={`Economy for ${vehicle.plate}`}
+                      inputMode="decimal"
+                      min="0.1"
+                      step="0.1"
+                      type="number"
+                      value={vehicle.economy.value}
+                      onChange={(event) => updateVehicleEconomy(vehicle, event.target.value)}
+                    />
+                  </label>
+                  <div className="vehicle-mode-field">
+                    <span>Estimate by</span>
+                    <div
+                      aria-label={`Refuel estimate type for ${vehicle.plate}`}
+                      className="vehicle-mode-toggle"
+                      role="group"
+                    >
+                      <button
+                        type="button"
+                        aria-pressed={refuelModeFor(vehicle) === "tank"}
+                        onClick={() => updateVehicleRefuelMode(vehicle, "tank")}
+                      >
+                        Tank
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={refuelModeFor(vehicle) === "range"}
+                        onClick={() => updateVehicleRefuelMode(vehicle, "range")}
+                      >
+                        Range
+                      </button>
+                    </div>
+                  </div>
+                  {refuelModeFor(vehicle) === "range" ? (
+                    <label>
+                      <span>Vehicle range</span>
+                      <input
+                        aria-label={`Range for ${vehicle.plate}`}
+                        inputMode="decimal"
+                        min="1"
+                        step="1"
+                        type="number"
+                        value={vehicle.rangeKm ?? ""}
+                        onChange={(event) => updateVehicleRange(vehicle, event.target.value)}
+                      />
+                    </label>
+                  ) : (
+                    <label>
+                      <span>Vehicle tank</span>
+                      <input
+                        aria-label={`Tank capacity for ${vehicle.plate}`}
+                        inputMode="decimal"
+                        min="1"
+                        step="0.1"
+                        type="number"
+                        value={vehicle.tankCapacityLiters ?? ""}
+                        onChange={(event) => updateVehicleTankCapacity(vehicle, event.target.value)}
+                      />
+                    </label>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
@@ -366,6 +499,26 @@ function formatEconomy(economy: SavedVehicle["economy"]): string {
   };
 
   return `${economy.value} ${unitLabels[economy.unit]}`;
+}
+
+function formatTankCapacity(tankCapacityLiters: number): string {
+  return `${tankCapacityLiters} L tank`;
+}
+
+function formatRange(rangeKm: number): string {
+  return `${rangeKm} km range`;
+}
+
+function activeTankCapacity(vehicle: SavedVehicle): number | null {
+  return refuelModeFor(vehicle) === "tank" ? vehicle.tankCapacityLiters ?? null : null;
+}
+
+function activeRange(vehicle: SavedVehicle): number | null {
+  return refuelModeFor(vehicle) === "range" ? vehicle.rangeKm ?? null : null;
+}
+
+function refuelModeFor(vehicle: SavedVehicle): NonNullable<SavedVehicle["refuelMode"]> {
+  return vehicle.refuelMode ?? (vehicle.rangeKm ? "range" : "tank");
 }
 
 function normalizePlate(plate: string): string {

@@ -190,12 +190,16 @@ p {
 label {
   display: grid;
   gap: 6px;
+  min-width: 0;
 }
 
 label span {
   color: #52657a;
   font-size: 12px;
   font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 input,
@@ -291,6 +295,64 @@ select {
 .vehicle-select span {
   color: #64748b;
   font-size: 12px;
+}
+
+.vehicle-fields {
+  display: grid;
+  gap: 8px;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.vehicle-fields input,
+.vehicle-mode-toggle {
+  min-height: 32px;
+}
+
+.vehicle-mode-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.vehicle-mode-field > span {
+  color: #52657a;
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vehicle-mode-toggle {
+  background: #e8eef5;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 2px;
+}
+
+.vehicle-mode-toggle button {
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: #52657a;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 4px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vehicle-mode-toggle button[aria-pressed="true"] {
+  background: #ffffff;
+  color: #0f766e;
+  box-shadow: 0 1px 2px rgba(15, 35, 50, 0.12);
 }
 
 .primary {

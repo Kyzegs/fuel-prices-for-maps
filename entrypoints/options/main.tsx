@@ -69,6 +69,28 @@ export function Options() {
             </button>
           </div>
         </div>
+        <div className="split">
+          <label className="toggle">
+            <input
+              checked={settings.showFuelLiters}
+              type="checkbox"
+              onChange={(event) =>
+                void persist({ ...settings, showFuelLiters: event.target.checked })
+              }
+            />
+            <span>Show liters</span>
+          </label>
+          <label className="toggle">
+            <input
+              checked={settings.showRefuelsNeeded}
+              type="checkbox"
+              onChange={(event) =>
+                void persist({ ...settings, showRefuelsNeeded: event.target.checked })
+              }
+            />
+            <span>Show refuels needed</span>
+          </label>
+        </div>
       </section>
 
       <footer>{status}</footer>

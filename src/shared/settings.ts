@@ -9,6 +9,10 @@ export const DEFAULT_SETTINGS: UserSettings = {
     value: 6.5,
     unit: "l_per_100km"
   },
+  showFuelLiters: false,
+  showRefuelsNeeded: false,
+  tankCapacityLiters: null,
+  rangeKm: null,
   plateCountry: "NL",
   savedVehicles: []
 };

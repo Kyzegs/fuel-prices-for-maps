@@ -36,6 +36,26 @@ export function costForDistance(
   return round(litersForDistance(distanceKm, economy) * pricePerLiter, 2);
 }
 
+export function refuelsForDistance(
+  distanceKm: number,
+  economy: FuelEconomy,
+  tankCapacityLiters?: number | null,
+  rangeKm?: number | null
+): number {
+  if (Number.isFinite(rangeKm) && rangeKm !== undefined && rangeKm !== null && rangeKm > 0) {
+    return Math.max(0, Math.ceil(distanceKm / rangeKm) - 1);
+  }
+  if (
+    tankCapacityLiters === undefined ||
+    tankCapacityLiters === null ||
+    !Number.isFinite(tankCapacityLiters) ||
+    tankCapacityLiters <= 0
+  ) {
+    return 0;
+  }
+  return Math.max(0, Math.ceil(litersForDistance(distanceKm, economy) / tankCapacityLiters) - 1);
+}
+
 export function round(value: number, decimals: number): number {
   const factor = 10 ** decimals;
   return Math.round((value + Number.EPSILON) * factor) / factor;

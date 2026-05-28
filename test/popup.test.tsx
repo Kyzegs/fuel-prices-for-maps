@@ -61,7 +61,8 @@ describe("popup settings UX", () => {
       country: "NL",
       plate: "AB12CD",
       model: "Test Model",
-      economy: { value: 5.4, unit: "l_per_100km" }
+      economy: { value: 5.4, unit: "l_per_100km" },
+      rangeKm: 720
     });
 
     render(<Popup />);
@@ -88,7 +89,10 @@ describe("popup settings UX", () => {
         country: "NL",
         plate: "AB12CD",
         model: "Test Model",
-        economy: { value: 5.4, unit: "l_per_100km" }
+        economy: { value: 5.4, unit: "l_per_100km" },
+        refuelMode: "range",
+        tankCapacityLiters: null,
+        rangeKm: 720
       }
     ]);
   });
@@ -99,8 +103,8 @@ describe("popup settings UX", () => {
     );
     await seedSettings({
       savedVehicles: [
-        savedVehicle("NL:AB12CD", "AB12CD", 5.4),
-        savedVehicle("NL:EF34GH", "EF34GH", 6.2)
+        savedVehicle("NL:AB12CD", "AB12CD", 5.4, 45, 650),
+        savedVehicle("NL:EF34GH", "EF34GH", 6.2, 60, 700)
       ]
     });
 
@@ -109,6 +113,8 @@ describe("popup settings UX", () => {
     fireEvent.click(await screen.findByRole("button", { name: /^EF34GH/ }));
     await screen.findByText("Selected EF34GH");
     expect(screen.getByLabelText("Economy")).toHaveValue(6.2);
+    expect((await getStoredSettings())?.tankCapacityLiters).toBeNull();
+    expect((await getStoredSettings())?.rangeKm).toBe(700);
 
     unmount();
     render(<Popup />);
@@ -117,7 +123,7 @@ describe("popup settings UX", () => {
       "aria-pressed",
       "true"
     );
-    expect(screen.getByLabelText("Economy")).toHaveValue(6.2);
+    await waitFor(() => expect(screen.getByLabelText("Economy")).toHaveValue(6.2));
   });
 
   it("clears selected plate when manual economy changes", async () => {
@@ -126,7 +132,7 @@ describe("popup settings UX", () => {
     );
     await seedSettings({
       economy: { value: 5.4, unit: "l_per_100km" },
-      savedVehicles: [savedVehicle("NL:AB12CD", "AB12CD", 5.4)],
+      savedVehicles: [savedVehicle("NL:AB12CD", "AB12CD", 5.4, 45, 650)],
       selectedVehicleId: "NL:AB12CD"
     });
 
@@ -134,6 +140,8 @@ describe("popup settings UX", () => {
 
     fireEvent.change(await screen.findByLabelText("Economy"), { target: { value: "7.1" } });
     await waitFor(async () => expect((await getStoredSettings())?.selectedVehicleId).toBeUndefined());
+    expect((await getStoredSettings())?.tankCapacityLiters).toBeNull();
+    expect((await getStoredSettings())?.rangeKm).toBeNull();
     expect(screen.getByRole("button", { name: /^AB12CD/ })).toHaveAttribute(
       "aria-pressed",
       "false"
@@ -146,7 +154,7 @@ describe("popup settings UX", () => {
     );
     await seedSettings({
       economy: { value: 5.4, unit: "l_per_100km" },
-      savedVehicles: [savedVehicle("NL:AB12CD", "AB12CD", 5.4)],
+      savedVehicles: [savedVehicle("NL:AB12CD", "AB12CD", 5.4, 45, 650)],
       selectedVehicleId: "NL:AB12CD"
     });
 
@@ -155,7 +163,120 @@ describe("popup settings UX", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Remove AB12CD" }));
     await waitFor(async () => expect((await getStoredSettings())?.savedVehicles).toEqual([]));
     expect((await getStoredSettings())?.selectedVehicleId).toBeUndefined();
+    expect((await getStoredSettings())?.tankCapacityLiters).toBeNull();
+    expect((await getStoredSettings())?.rangeKm).toBeNull();
     expect(screen.getByLabelText("Economy")).toHaveValue(5.4);
+  });
+
+  it("edits saved vehicle economy and range when range is available", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ prices: [] }), { status: 200 })
+    );
+    await seedSettings({
+      savedVehicles: [savedVehicle("NL:AB12CD", "AB12CD", 5.4, 45, 650)],
+      selectedVehicleId: "NL:AB12CD"
+    });
+
+    render(<Popup />);
+
+    fireEvent.change(await screen.findByLabelText("Economy for AB12CD"), {
+      target: { value: "6.1" }
+    });
+    expect(screen.queryByLabelText("Tank capacity for AB12CD")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Range" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.change(screen.getByLabelText("Range for AB12CD"), {
+      target: { value: "720" }
+    });
+
+    await waitFor(async () =>
+      expect(await getStoredSettings()).toMatchObject({
+        economy: { value: 6.1, unit: "l_per_100km" },
+        tankCapacityLiters: null,
+        rangeKm: 720,
+        savedVehicles: [
+          {
+            id: "NL:AB12CD",
+            refuelMode: "range",
+            tankCapacityLiters: 45,
+            rangeKm: 720,
+            economy: { value: 6.1, unit: "l_per_100km" }
+          }
+        ]
+      })
+    );
+  });
+
+  it("edits saved vehicle tank capacity when range is not available", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ prices: [] }), { status: 200 })
+    );
+    await seedSettings({
+      savedVehicles: [savedVehicle("NL:AB12CD", "AB12CD", 5.4, null)],
+      selectedVehicleId: "NL:AB12CD"
+    });
+
+    render(<Popup />);
+
+    expect(await screen.findByLabelText("Tank capacity for AB12CD")).toHaveValue(null);
+    expect(screen.queryByLabelText("Range for AB12CD")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tank" })).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.change(screen.getByLabelText("Tank capacity for AB12CD"), {
+      target: { value: "55" }
+    });
+
+    await waitFor(async () =>
+      expect(await getStoredSettings()).toMatchObject({
+        tankCapacityLiters: 55,
+        rangeKm: null,
+        savedVehicles: [
+          {
+            id: "NL:AB12CD",
+            refuelMode: "tank",
+            tankCapacityLiters: 55,
+            rangeKm: null
+          }
+        ]
+      })
+    );
+  });
+
+  it("switches a saved vehicle between tank capacity and range inputs", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ prices: [] }), { status: 200 })
+    );
+    await seedSettings({
+      savedVehicles: [savedVehicle("NL:AB12CD", "AB12CD", 5.4, 45, 650)],
+      selectedVehicleId: "NL:AB12CD"
+    });
+
+    render(<Popup />);
+
+    expect(await screen.findByLabelText("Range for AB12CD")).toHaveValue(650);
+
+    fireEvent.click(screen.getByRole("button", { name: "Tank" }));
+
+    expect(await screen.findByLabelText("Tank capacity for AB12CD")).toHaveValue(45);
+    expect(screen.queryByLabelText("Range for AB12CD")).not.toBeInTheDocument();
+    await waitFor(async () =>
+      expect(await getStoredSettings()).toMatchObject({
+        tankCapacityLiters: 45,
+        rangeKm: null,
+        savedVehicles: [{ id: "NL:AB12CD", refuelMode: "tank" }]
+      })
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Range" }));
+
+    expect(await screen.findByLabelText("Range for AB12CD")).toHaveValue(650);
+    expect(screen.queryByLabelText("Tank capacity for AB12CD")).not.toBeInTheDocument();
+    await waitFor(async () =>
+      expect(await getStoredSettings()).toMatchObject({
+        tankCapacityLiters: null,
+        rangeKm: 650,
+        savedVehicles: [{ id: "NL:AB12CD", refuelMode: "range" }]
+      })
+    );
   });
 });
 
@@ -177,6 +298,10 @@ async function seedSettings(settings: Partial<UserSettings>) {
       currency: "EUR",
       fuelType: "gasoline_95",
       economy: { value: 6.5, unit: "l_per_100km" },
+      showFuelLiters: false,
+      showRefuelsNeeded: false,
+      tankCapacityLiters: null,
+      rangeKm: null,
       plateCountry: "NL",
       savedVehicles: [],
       ...settings
@@ -189,11 +314,20 @@ async function getStoredSettings(): Promise<UserSettings | undefined> {
   return stored[SETTINGS_KEY] as UserSettings | undefined;
 }
 
-function savedVehicle(id: string, plate: string, economyValue: number) {
+function savedVehicle(
+  id: string,
+  plate: string,
+  economyValue: number,
+  tankCapacityLiters: number | null,
+  rangeKm: number | null = null
+) {
   return {
     id,
     country: "NL",
     plate,
-    economy: { value: economyValue, unit: "l_per_100km" as const }
+    economy: { value: economyValue, unit: "l_per_100km" as const },
+    refuelMode: rangeKm ? "range" as const : "tank" as const,
+    tankCapacityLiters,
+    rangeKm
   };
 }

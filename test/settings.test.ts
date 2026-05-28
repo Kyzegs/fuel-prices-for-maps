@@ -20,6 +20,10 @@ describe("settings storage", () => {
       currency: "eur",
       fuelType: "gasoline_95",
       economy: { value: 5.4, unit: "l_per_100km" },
+      showFuelLiters: true,
+      showRefuelsNeeded: true,
+      tankCapacityLiters: 45,
+      rangeKm: 640,
       plateCountry: "nl",
       savedVehicles: [
         {
@@ -27,7 +31,9 @@ describe("settings storage", () => {
           country: "nl",
           plate: "ab-12-cd",
           model: " Test Model ",
-          economy: { value: 5.4, unit: "l_per_100km" }
+          economy: { value: 5.4, unit: "l_per_100km" },
+          tankCapacityLiters: 45,
+          rangeKm: 640
         }
       ],
       selectedVehicleId: "stale-id"
