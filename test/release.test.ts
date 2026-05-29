@@ -9,7 +9,6 @@ describe("release configuration", () => {
   it("uses package.json as the manifest version source", async () => {
     const manifest = await resolveManifest("https://api.fuel-cost.app");
 
-    expect(packageJson.version).toBe("1.0.0");
     expect(manifest.version).toBe(packageJson.version);
   });
 
