@@ -1,7 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import browser from "webextension-polyfill";
-import { CarFront, Fuel, RefreshCw, Route, Settings, Trash2 } from "lucide-react";
+import {
+  CarFront,
+  ChevronDown,
+  Fuel,
+  Plus,
+  RefreshCw,
+  Route,
+  Settings,
+  Trash2
+} from "lucide-react";
 import { lookupVehicle } from "../../src/shared/api";
 import { getDailyPrice } from "../../src/shared/priceCache";
 import { DEFAULT_SETTINGS } from "../../src/shared/settings";
@@ -18,18 +27,46 @@ import {
 } from "../../src/shared/types";
 import "./style.css";
 
+interface PendingVehicleLookup {
+  country: string;
+  plate: string;
+  model?: string;
+  fuelType?: UserSettings["fuelType"];
+}
+
+type VehicleAccordionPanel = "lookup" | "manual";
+type StatusTone = "info" | "success" | "error";
+
 export function Popup() {
   const { settings, isLoading, status, setStatus, persist } = useSettingsState();
   const [economyValue, setEconomyValue] = useState(String(DEFAULT_SETTINGS.economy.value));
   const [prices, setPrices] = useState<PriceQuote[]>([]);
   const [priceStatus, setPriceStatus] = useState("Loading prices");
   const [plate, setPlate] = useState("");
+  const [pendingLookup, setPendingLookup] = useState<PendingVehicleLookup | undefined>();
+  const [openVehiclePanel, setOpenVehiclePanel] = useState<VehicleAccordionPanel>("lookup");
+  const [economyStatus, setEconomyStatus] = useState("");
+  const [vehicleStatus, setVehicleStatus] = useState("");
+  const [vehicleStatusTone, setVehicleStatusTone] = useState<StatusTone>("info");
+  const [manualNickname, setManualNickname] = useState("");
+  const [manualPlate, setManualPlate] = useState("");
+  const [manualFuelType, setManualFuelType] = useState<UserSettings["fuelType"]>(
+    DEFAULT_SETTINGS.fuelType
+  );
+  const [manualEconomy, setManualEconomy] = useState("");
+  const [manualTankCapacity, setManualTankCapacity] = useState("");
+  const [manualRange, setManualRange] = useState("");
 
   useEffect(() => {
     if (isLoading) return;
     setEconomyValue(String(settings.economy.value));
     setPlate(settings.savedVehicles.find((vehicle) => vehicle.id === settings.selectedVehicleId)?.plate || "");
   }, [isLoading, settings.economy.value, settings.savedVehicles, settings.selectedVehicleId]);
+
+  useEffect(() => {
+    if (isLoading || pendingLookup) return;
+    setManualFuelType(settings.fuelType);
+  }, [isLoading, pendingLookup, settings.fuelType]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -64,21 +101,29 @@ export function Popup() {
   }
 
   async function onLookup() {
-    if (!canLookup) return;
+    if (!canLookup) {
+      setVehicleStatusTone("error");
+      setVehicleStatus("Enter at least 4 plate characters.");
+      return;
+    }
     setStatus("Looking up vehicle");
+    setVehicleStatusTone("info");
+    setVehicleStatus("Looking up vehicle");
     try {
-      const response = await lookupVehicle(
-        settings.plateCountry,
-        plate.trim()
-      );
+      const response = await lookupVehicle(settings.plateCountry, plate.trim());
       if (response.economy) {
         const country = settings.plateCountry.toUpperCase();
         const normalizedPlate = normalizePlate(response.plate || plate);
+        const existingVehicle = settings.savedVehicles.find(
+          (item) => item.id === makeVehicleId(country, normalizedPlate)
+        );
         const vehicle: SavedVehicle = {
           id: makeVehicleId(country, normalizedPlate),
           country,
           plate: normalizedPlate,
+          nickname: existingVehicle?.nickname?.trim() || response.model,
           model: response.model,
+          fuelType: response.fuelType ?? existingVehicle?.fuelType ?? settings.fuelType,
           economy: response.economy,
           refuelMode: response.rangeKm ? "range" : "tank",
           tankCapacityLiters: response.tankCapacityLiters ?? null,
@@ -93,19 +138,114 @@ export function Popup() {
         setPlate(vehicle.plate);
         await persistAndRefresh({
           ...settings,
+          fuelType: vehicle.fuelType ?? settings.fuelType,
           economy: response.economy,
           tankCapacityLiters: activeTankCapacity(vehicle),
           rangeKm: activeRange(vehicle),
           savedVehicles,
           selectedVehicleId: vehicle.id
-        }, response.model ? `Loaded ${response.model}` : "Economy loaded");
-        setStatus(response.model ? `Loaded ${response.model}` : "Economy loaded");
+        });
+        setVehicleStatusTone("success");
+        setVehicleStatus(response.model ? `Loaded ${response.model}` : "Economy loaded");
+        setPendingLookup(undefined);
       } else {
-        setStatus(response.message || "Manual economy required");
+        const country = response.country.toUpperCase();
+        const normalizedPlate = normalizePlate(response.plate || plate);
+        if (normalizedPlate && (response.model || response.fuelType)) {
+          setPendingLookup({
+            country,
+            plate: normalizedPlate,
+            model: response.model,
+            fuelType: response.fuelType
+          });
+          setPlate(normalizedPlate);
+          setManualNickname(response.model ?? "");
+          setManualPlate(normalizedPlate);
+          setManualFuelType(response.fuelType ?? settings.fuelType);
+          setManualEconomy("");
+          setManualTankCapacity("");
+          setManualRange("");
+          setOpenVehiclePanel("manual");
+        } else {
+          setPendingLookup(undefined);
+        }
+        const message = response.message || "Manual economy required";
+        setStatus("Ready");
+        setVehicleStatusTone("info");
+        setVehicleStatus(message);
       }
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Lookup failed");
+      setPendingLookup(undefined);
+      const message = error instanceof Error ? error.message : "Lookup failed";
+      setStatus("Ready");
+      setVehicleStatusTone("error");
+      setVehicleStatus(message);
     }
+  }
+
+  function addManualVehicle() {
+    const nickname = manualNickname.trim();
+    const economy = Number(manualEconomy);
+    const tankCapacityLiters = numberOrNull(manualTankCapacity);
+    const rangeKm = numberOrNull(manualRange);
+
+    if (!nickname) {
+      setVehicleStatusTone("error");
+      setVehicleStatus("Enter a vehicle nickname");
+      return;
+    }
+
+    if (!Number.isFinite(economy) || economy <= 0) {
+      setVehicleStatusTone("error");
+      setVehicleStatus("Enter a valid fuel economy");
+      return;
+    }
+
+    const country = pendingLookup?.country ?? settings.plateCountry.toUpperCase();
+    const rawPlate = manualPlate.trim();
+    const normalizedPendingPlate = pendingLookup ? normalizePlate(rawPlate || pendingLookup.plate) : rawPlate;
+    const vehicle: SavedVehicle = {
+      id: pendingLookup && normalizedPendingPlate
+        ? makeVehicleId(country, normalizedPendingPlate)
+        : makeManualVehicleId(),
+      country,
+      plate: normalizedPendingPlate,
+      nickname,
+      model: pendingLookup?.model,
+      fuelType: pendingLookup?.fuelType ?? manualFuelType,
+      economy: {
+        ...settings.economy,
+        value: economy
+      },
+      refuelMode: rangeKm ? "range" : "tank",
+      tankCapacityLiters,
+      rangeKm
+    };
+
+    setEconomyValue(String(economy));
+    setPlate(vehicle.plate);
+    setManualNickname("");
+    setManualPlate("");
+    setManualFuelType(settings.fuelType);
+    setManualEconomy("");
+    setManualTankCapacity("");
+    setManualRange("");
+    setPendingLookup(undefined);
+    setVehicleStatusTone("success");
+    setVehicleStatus(`Added ${vehicleDisplayName(vehicle)}`);
+    void persistAndRefresh({
+      ...settings,
+      fuelType: vehicle.fuelType ?? settings.fuelType,
+      economy: vehicle.economy,
+      tankCapacityLiters: activeTankCapacity(vehicle),
+      rangeKm: activeRange(vehicle),
+      plateCountry: vehicle.country,
+      savedVehicles: [
+        ...settings.savedVehicles.filter((item) => item.id !== vehicle.id),
+        vehicle
+      ],
+      selectedVehicleId: vehicle.id
+    });
   }
 
   function updateEconomyValue(nextValue: string) {
@@ -113,9 +253,10 @@ export function Popup() {
 
     const numericValue = Number(nextValue);
     if (nextValue.trim() === "" || !Number.isFinite(numericValue) || numericValue <= 0) {
-      setStatus("Enter a valid fuel economy");
+      setEconomyStatus("Enter a valid fuel economy");
       return;
     }
+    setEconomyStatus("");
 
     if (numericValue === settings.economy.value && !settings.selectedVehicleId) return;
 
@@ -131,31 +272,41 @@ export function Popup() {
   function selectVehicle(vehicle: SavedVehicle) {
     setEconomyValue(String(vehicle.economy.value));
     setPlate(vehicle.plate);
-    void persist({
+    void persistAndRefresh({
       ...settings,
+      fuelType: vehicle.fuelType ?? settings.fuelType,
       economy: vehicle.economy,
       tankCapacityLiters: activeTankCapacity(vehicle),
       rangeKm: activeRange(vehicle),
       plateCountry: vehicle.country,
       selectedVehicleId: vehicle.id
-    }, vehicle.model ? `Selected ${vehicle.model}` : `Selected ${vehicle.plate}`);
+    }, `Selected ${vehicleDisplayName(vehicle)}`);
   }
 
   function updateVehicle(vehicle: SavedVehicle, patch: Partial<SavedVehicle>) {
+    const isSelectedVehicle = settings.selectedVehicleId === vehicle.id;
     const nextVehicle = { ...vehicle, ...patch };
-    void persist({
+    const nextSettings = {
       ...settings,
-      economy: settings.selectedVehicleId === vehicle.id ? nextVehicle.economy : settings.economy,
-      tankCapacityLiters: settings.selectedVehicleId === vehicle.id
+      fuelType: isSelectedVehicle ? nextVehicle.fuelType ?? settings.fuelType : settings.fuelType,
+      economy: isSelectedVehicle ? nextVehicle.economy : settings.economy,
+      tankCapacityLiters: isSelectedVehicle
         ? activeTankCapacity(nextVehicle)
         : settings.tankCapacityLiters,
-      rangeKm: settings.selectedVehicleId === vehicle.id
+      rangeKm: isSelectedVehicle
         ? activeRange(nextVehicle)
         : settings.rangeKm,
       savedVehicles: settings.savedVehicles.map((item) =>
         item.id === vehicle.id ? nextVehicle : item
       )
-    });
+    };
+
+    if (isSelectedVehicle && patch.fuelType && patch.fuelType !== settings.fuelType) {
+      void persistAndRefresh(nextSettings);
+      return;
+    }
+
+    void persist(nextSettings);
   }
 
   function updateVehicleEconomy(vehicle: SavedVehicle, nextValue: string) {
@@ -167,6 +318,18 @@ export function Popup() {
         value
       }
     });
+  }
+
+  function updateVehicleFuelType(vehicle: SavedVehicle, fuelType: UserSettings["fuelType"]) {
+    updateVehicle(vehicle, { fuelType });
+  }
+
+  function updateVehicleNickname(vehicle: SavedVehicle, nickname: string) {
+    updateVehicle(vehicle, { nickname });
+  }
+
+  function updateVehiclePlate(vehicle: SavedVehicle, plate: string) {
+    updateVehicle(vehicle, { plate });
   }
 
   function updateVehicleTankCapacity(vehicle: SavedVehicle, nextValue: string) {
@@ -202,7 +365,7 @@ export function Popup() {
       tankCapacityLiters: isSelectedVehicle ? null : settings.tankCapacityLiters,
       rangeKm: isSelectedVehicle ? null : settings.rangeKm,
       selectedVehicleId: isSelectedVehicle ? undefined : settings.selectedVehicleId
-    }, "Plate removed");
+    }, "Vehicle removed");
   }
 
   async function openOptions() {
@@ -277,7 +440,11 @@ export function Popup() {
           <select
             value={settings.fuelType}
             onChange={(event) =>
-              persistAndRefresh({ ...settings, fuelType: event.target.value as UserSettings["fuelType"] })
+              persistAndRefresh({
+                ...settings,
+                fuelType: event.target.value as UserSettings["fuelType"],
+                selectedVehicleId: undefined
+              })
             }
           >
             {SUPPORTED_PRICE_FUEL_TYPES.map((fuel) => (
@@ -290,8 +457,9 @@ export function Popup() {
 
         <div className="split">
           <label>
-            <span>Economy</span>
+            <span>Economy ({formatEconomyUnit(settings.economy.unit)})</span>
             <input
+              aria-label="Trip economy"
               inputMode="decimal"
               min="0.1"
               step="0.1"
@@ -321,134 +489,340 @@ export function Popup() {
             </select>
           </label>
         </div>
+        {economyStatus ? (
+          <p className="inline-status error" role="status">{economyStatus}</p>
+        ) : null}
       </section>
 
       <section className="panel">
         <div className="section-title">
           <CarFront size={17} />
-          <h2>Vehicle lookup</h2>
+          <h2>Vehicles</h2>
         </div>
         {selectedVehicle ? (
-          <p className="muted">Using {selectedVehicle.plate}</p>
+          <p className="muted">Using {vehicleDisplayName(selectedVehicle)}</p>
         ) : (
           <p className="muted">Manual fuel economy</p>
         )}
-        <div className="split country-plate">
-          <label>
-            <span>Country</span>
-            <select
-              value={settings.plateCountry}
-              onChange={(event) =>
-                persistAndRefresh({ ...settings, plateCountry: event.target.value.toUpperCase() })
-              }
-            >
-              {SUPPORTED_PLATE_COUNTRIES.map((country) => (
-                <option key={country.code} value={country.code}>
-                  {country.label} ({country.code})
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Plate</span>
-            <input value={plate} onChange={(event) => setPlate(event.target.value)} />
-          </label>
+        <div className="vehicle-accordion">
+          <button
+            aria-controls="vehicle-lookup-panel"
+            aria-expanded={openVehiclePanel === "lookup"}
+            className="accordion-trigger"
+            type="button"
+            onClick={() => {
+              setOpenVehiclePanel("lookup");
+              setVehicleStatus("");
+              setVehicleStatusTone("info");
+            }}
+          >
+            <span className="title-with-icon">
+              <Route size={15} />
+              Vehicle lookup
+            </span>
+            <ChevronDown size={15} />
+          </button>
+          {openVehiclePanel === "lookup" ? (
+            <div className="accordion-panel" id="vehicle-lookup-panel">
+              {vehicleStatus ? (
+                <p className={`inline-status ${vehicleStatusTone}`} role="status">{vehicleStatus}</p>
+              ) : null}
+              <div className="split country-plate">
+                <label>
+                  <span>Country</span>
+                  <select
+                    value={settings.plateCountry}
+                    onChange={(event) => {
+                      setPendingLookup(undefined);
+                      void persistAndRefresh({
+                        ...settings,
+                        plateCountry: event.target.value.toUpperCase()
+                      });
+                      setVehicleStatus("");
+                      setVehicleStatusTone("info");
+                    }}
+                  >
+                    {SUPPORTED_PLATE_COUNTRIES.map((country) => (
+                      <option key={country.code} value={country.code}>
+                        {country.label} ({country.code})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>Plate</span>
+                  <input
+                    value={plate}
+                    onChange={(event) => {
+                      setPendingLookup(undefined);
+                      setPlate(event.target.value);
+                      setVehicleStatus("");
+                      setVehicleStatusTone("info");
+                    }}
+                  />
+                </label>
+              </div>
+              <button className="primary" type="button" onClick={onLookup}>
+                <Route size={16} />
+                Fetch economy
+              </button>
+            </div>
+          ) : null}
+
+          <button
+            aria-controls="manual-vehicle-panel"
+            aria-expanded={openVehiclePanel === "manual"}
+            className="accordion-trigger"
+            type="button"
+            onClick={() => {
+              setOpenVehiclePanel("manual");
+              setVehicleStatus("");
+              setVehicleStatusTone("info");
+            }}
+          >
+            <span className="title-with-icon">
+              <Plus size={15} />
+              Add vehicle manually
+            </span>
+            <ChevronDown size={15} />
+          </button>
+          {openVehiclePanel === "manual" ? (
+            <div className="accordion-panel manual-vehicle-form" id="manual-vehicle-panel">
+              {vehicleStatus ? (
+                <p className={`inline-status ${vehicleStatusTone}`} role="status">{vehicleStatus}</p>
+              ) : null}
+              <div className="manual-vehicle-grid">
+                <label>
+                  <span>Nickname *</span>
+                  <input
+                    aria-label="Manual vehicle nickname"
+                    value={manualNickname}
+                    onChange={(event) => {
+                      setManualNickname(event.target.value);
+                      setVehicleStatus("");
+                      setVehicleStatusTone("info");
+                    }}
+                  />
+                </label>
+                <label>
+                  <span>Plate</span>
+                  <input
+                    aria-label="Manual vehicle plate"
+                    value={manualPlate}
+                    onChange={(event) => {
+                      setManualPlate(event.target.value);
+                      setVehicleStatus("");
+                      setVehicleStatusTone("info");
+                    }}
+                  />
+                </label>
+                <label>
+                  <span>Fuel type</span>
+                  <select
+                    aria-label="Manual vehicle fuel type"
+                    value={manualFuelType}
+                    onChange={(event) =>
+                      setManualFuelType(event.target.value as UserSettings["fuelType"])
+                    }
+                  >
+                    {SUPPORTED_PRICE_FUEL_TYPES.map((fuel) => (
+                      <option key={fuel} value={fuel}>
+                        {FUEL_LABELS[fuel]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>Economy ({formatEconomyUnit(settings.economy.unit)}) *</span>
+                  <input
+                    aria-label="Manual vehicle economy"
+                    inputMode="decimal"
+                    min="0.1"
+                    step="0.1"
+                    type="number"
+                    value={manualEconomy}
+                    onChange={(event) => {
+                      setManualEconomy(event.target.value);
+                      setVehicleStatus("");
+                      setVehicleStatusTone("info");
+                    }}
+                  />
+                </label>
+                <label>
+                  <span>Tank</span>
+                  <input
+                    aria-label="Manual vehicle tank capacity"
+                    inputMode="decimal"
+                    min="1"
+                    step="0.1"
+                    type="number"
+                    value={manualTankCapacity}
+                    onChange={(event) => {
+                      setManualTankCapacity(event.target.value);
+                      setVehicleStatus("");
+                      setVehicleStatusTone("info");
+                    }}
+                  />
+                </label>
+                <label>
+                  <span>Range</span>
+                  <input
+                    aria-label="Manual vehicle range"
+                    inputMode="decimal"
+                    min="1"
+                    step="1"
+                    type="number"
+                    value={manualRange}
+                    onChange={(event) => {
+                      setManualRange(event.target.value);
+                      setVehicleStatus("");
+                      setVehicleStatusTone("info");
+                    }}
+                  />
+                </label>
+              </div>
+              <button
+                className="primary compact"
+                type="button"
+                onClick={addManualVehicle}
+              >
+                <Plus size={16} />
+                Add vehicle
+              </button>
+            </div>
+          ) : null}
         </div>
-        <button className="primary" disabled={!canLookup} onClick={onLookup}>
-          <Route size={16} />
-          Fetch economy
-        </button>
         {settings.savedVehicles.length > 0 ? (
           <ul className="vehicle-list">
-            {settings.savedVehicles.map((vehicle) => (
-              <li key={vehicle.id} data-selected={vehicle.id === settings.selectedVehicleId}>
-                <button
-                  className="vehicle-select"
-                  type="button"
-                  aria-pressed={vehicle.id === settings.selectedVehicleId}
-                  onClick={() => selectVehicle(vehicle)}
-                >
-                  <strong>{vehicle.plate}</strong>
-                  <span>
-                    {vehicle.model || vehicle.country} · {formatEconomy(vehicle.economy)}
-                    {refuelModeFor(vehicle) === "range" && vehicle.rangeKm ? ` · ${formatRange(vehicle.rangeKm)}` : ""}
-                    {refuelModeFor(vehicle) === "tank" && vehicle.tankCapacityLiters ? ` · ${formatTankCapacity(vehicle.tankCapacityLiters)}` : ""}
-                  </span>
-                </button>
-                <button
-                  className="icon-button danger"
-                  type="button"
-                  aria-label={`Remove ${vehicle.plate}`}
-                  onClick={() => removeVehicle(vehicle.id)}
-                >
-                  <Trash2 size={15} />
-                </button>
-                <div className="vehicle-fields">
-                  <label>
-                    <span>Vehicle economy</span>
-                    <input
-                      aria-label={`Economy for ${vehicle.plate}`}
-                      inputMode="decimal"
-                      min="0.1"
-                      step="0.1"
-                      type="number"
-                      value={vehicle.economy.value}
-                      onChange={(event) => updateVehicleEconomy(vehicle, event.target.value)}
-                    />
-                  </label>
-                  <div className="vehicle-mode-field">
-                    <span>Estimate by</span>
-                    <div
-                      aria-label={`Refuel estimate type for ${vehicle.plate}`}
-                      className="vehicle-mode-toggle"
-                      role="group"
-                    >
-                      <button
-                        type="button"
-                        aria-pressed={refuelModeFor(vehicle) === "tank"}
-                        onClick={() => updateVehicleRefuelMode(vehicle, "tank")}
-                      >
-                        Tank
-                      </button>
-                      <button
-                        type="button"
-                        aria-pressed={refuelModeFor(vehicle) === "range"}
-                        onClick={() => updateVehicleRefuelMode(vehicle, "range")}
-                      >
-                        Range
-                      </button>
-                    </div>
-                  </div>
-                  {refuelModeFor(vehicle) === "range" ? (
+            {settings.savedVehicles.map((vehicle) => {
+              const vehicleName = vehicleDisplayName(vehicle);
+              const vehiclePlate = vehicle.plate.trim();
+              return (
+                <li key={vehicle.id} data-selected={vehicle.id === settings.selectedVehicleId}>
+                  <button
+                    className="vehicle-select"
+                    type="button"
+                    aria-pressed={vehicle.id === settings.selectedVehicleId}
+                    onClick={() => selectVehicle(vehicle)}
+                  >
+                    <strong>{vehicleName}</strong>
+                    <span>
+                      {vehiclePlate ? `${vehiclePlate} · ` : ""}
+                      {FUEL_LABELS[vehicle.fuelType ?? settings.fuelType]} · {formatEconomy(vehicle.economy)}
+                      {refuelModeFor(vehicle) === "range" && vehicle.rangeKm ? ` · ${formatRange(vehicle.rangeKm)}` : ""}
+                      {refuelModeFor(vehicle) === "tank" && vehicle.tankCapacityLiters ? ` · ${formatTankCapacity(vehicle.tankCapacityLiters)}` : ""}
+                    </span>
+                  </button>
+                  <button
+                    className="icon-button danger"
+                    type="button"
+                    aria-label={`Remove ${vehicleName}`}
+                    onClick={() => removeVehicle(vehicle.id)}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                  <div className="vehicle-fields">
                     <label>
-                      <span>Vehicle range</span>
+                      <span>Nickname</span>
                       <input
-                        aria-label={`Range for ${vehicle.plate}`}
-                        inputMode="decimal"
-                        min="1"
-                        step="1"
-                        type="number"
-                        value={vehicle.rangeKm ?? ""}
-                        onChange={(event) => updateVehicleRange(vehicle, event.target.value)}
+                        aria-label={`Nickname for ${vehicleName}`}
+                        value={vehicle.nickname ?? ""}
+                        onChange={(event) => updateVehicleNickname(vehicle, event.target.value)}
                       />
                     </label>
-                  ) : (
                     <label>
-                      <span>Vehicle tank</span>
+                      <span>Plate</span>
                       <input
-                        aria-label={`Tank capacity for ${vehicle.plate}`}
+                        aria-label={`Plate for ${vehicleName}`}
+                        value={vehicle.plate}
+                        onChange={(event) => updateVehiclePlate(vehicle, event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      <span>Fuel type</span>
+                      <select
+                        aria-label={`Fuel type for ${vehicleName}`}
+                        value={vehicle.fuelType ?? settings.fuelType}
+                        onChange={(event) =>
+                          updateVehicleFuelType(
+                            vehicle,
+                            event.target.value as UserSettings["fuelType"]
+                          )
+                        }
+                      >
+                        {SUPPORTED_PRICE_FUEL_TYPES.map((fuel) => (
+                          <option key={fuel} value={fuel}>
+                            {FUEL_LABELS[fuel]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span>Economy ({formatEconomyUnit(vehicle.economy.unit)})</span>
+                      <input
+                        aria-label={`Economy for ${vehicleName}`}
                         inputMode="decimal"
-                        min="1"
+                        min="0.1"
                         step="0.1"
                         type="number"
-                        value={vehicle.tankCapacityLiters ?? ""}
-                        onChange={(event) => updateVehicleTankCapacity(vehicle, event.target.value)}
+                        value={vehicle.economy.value}
+                        onChange={(event) => updateVehicleEconomy(vehicle, event.target.value)}
                       />
                     </label>
-                  )}
-                </div>
-              </li>
-            ))}
+                    <div className="vehicle-mode-field">
+                      <span>Estimate by</span>
+                      <div
+                        aria-label={`Refuel estimate type for ${vehicleName}`}
+                        className="vehicle-mode-toggle"
+                        role="group"
+                      >
+                        <button
+                          type="button"
+                          aria-pressed={refuelModeFor(vehicle) === "tank"}
+                          onClick={() => updateVehicleRefuelMode(vehicle, "tank")}
+                        >
+                          Tank
+                        </button>
+                        <button
+                          type="button"
+                          aria-pressed={refuelModeFor(vehicle) === "range"}
+                          onClick={() => updateVehicleRefuelMode(vehicle, "range")}
+                        >
+                          Range
+                        </button>
+                      </div>
+                    </div>
+                    {refuelModeFor(vehicle) === "range" ? (
+                      <label>
+                        <span>Vehicle range</span>
+                        <input
+                          aria-label={`Range for ${vehicleName}`}
+                          inputMode="decimal"
+                          min="1"
+                          step="1"
+                          type="number"
+                          value={vehicle.rangeKm ?? ""}
+                          onChange={(event) => updateVehicleRange(vehicle, event.target.value)}
+                        />
+                      </label>
+                    ) : (
+                      <label>
+                        <span>Vehicle tank</span>
+                        <input
+                          aria-label={`Tank capacity for ${vehicleName}`}
+                          inputMode="decimal"
+                          min="1"
+                          step="0.1"
+                          type="number"
+                          value={vehicle.tankCapacityLiters ?? ""}
+                          onChange={(event) => updateVehicleTankCapacity(vehicle, event.target.value)}
+                        />
+                      </label>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         ) : null}
       </section>
@@ -490,7 +864,11 @@ function formatPriceStatus(price: PriceQuote | undefined, country: string): stri
   return price.diagnostics?.message || `Daily average for ${country}`;
 }
 
-function formatEconomy(economy: SavedVehicle["economy"]): string {
+function vehicleDisplayName(vehicle: SavedVehicle): string {
+  return vehicle.nickname?.trim() || vehicle.plate.trim() || vehicle.model?.trim() || "Vehicle";
+}
+
+function formatEconomyUnit(unit: EconomyUnit): string {
   const unitLabels: Record<EconomyUnit, string> = {
     l_per_100km: "L/100 km",
     km_per_l: "km/L",
@@ -498,7 +876,11 @@ function formatEconomy(economy: SavedVehicle["economy"]): string {
     mpg_imp: "MPG UK"
   };
 
-  return `${economy.value} ${unitLabels[economy.unit]}`;
+  return unitLabels[unit];
+}
+
+function formatEconomy(economy: SavedVehicle["economy"]): string {
+  return `${economy.value} ${formatEconomyUnit(economy.unit)}`;
 }
 
 function formatTankCapacity(tankCapacityLiters: number): string {
@@ -527,4 +909,15 @@ function normalizePlate(plate: string): string {
 
 function makeVehicleId(country: string, plate: string): string {
   return `${country}:${plate}`;
+}
+
+function makeManualVehicleId(): string {
+  const randomId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+  return `manual:${randomId}`;
+}
+
+function numberOrNull(value: string): number | null {
+  if (value.trim() === "") return null;
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : null;
 }

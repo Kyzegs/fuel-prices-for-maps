@@ -12,6 +12,7 @@ export interface RateLimitBinding {
 export interface Env {
   PRICE_CACHE?: KVNamespace;
   ALLOWED_ORIGINS?: string;
+  DVLA_VES_API_KEY?: string;
   PRICE_RATE_LIMITER?: RateLimitBinding;
   VEHICLE_RATE_LIMITER?: RateLimitBinding;
 }

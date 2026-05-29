@@ -27,7 +27,8 @@ export const FUEL_LABELS: Record<FuelType, string> = {
 };
 
 export const SUPPORTED_PLATE_COUNTRIES = [
-  { code: "NL", label: "Netherlands" }
+  { code: "NL", label: "Netherlands" },
+  { code: "UK", label: "United Kingdom" }
 ] as const;
 
 export const SUPPORTED_PRICE_COUNTRIES = [
@@ -77,7 +78,9 @@ export interface SavedVehicle {
   id: string;
   country: string;
   plate: string;
+  nickname?: string;
   model?: string;
+  fuelType?: FuelType;
   economy: FuelEconomy;
   refuelMode?: "tank" | "range";
   tankCapacityLiters?: number | null;
@@ -131,6 +134,7 @@ export interface VehicleLookupResponse {
   country: string;
   plate?: string;
   model?: string;
+  fuelType?: FuelType;
   economy?: FuelEconomy;
   tankCapacityLiters?: number;
   rangeKm?: number;

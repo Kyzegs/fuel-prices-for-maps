@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { cors } from "./cors";
 import type { Env } from "./env";
 import { ecOilBulletinPriceProvider } from "./adapters/prices";
@@ -48,17 +48,15 @@ app.get("/vehicles/lookup", async (c) => {
   });
   if (!parsed.success) return c.json({ error: parsed.error.message }, 400);
 
-  const result = await rdwVehicleProvider.lookupEconomy(
-    parsed.data.country,
-    parsed.data.plate
-  );
-  return c.json(
-    result,
-    200,
-    {
-      "cache-control": "private, no-store"
-    }
-  );
+  return lookupVehicle(c, parsed.data.country, parsed.data.plate);
+});
+
+app.post("/vehicles/lookup", async (c) => {
+  const body = await c.req.json().catch(() => undefined);
+  const parsed = vehicleLookupQuerySchema.safeParse(body);
+  if (!parsed.success) return c.json({ error: parsed.error.message }, 400);
+
+  return lookupVehicle(c, parsed.data.country, parsed.data.plate);
 });
 
 export { app };
@@ -66,3 +64,32 @@ export { app };
 export default {
   fetch: app.fetch
 };
+
+async function lookupVehicle(
+  c: Context<{ Bindings: Env }>,
+  country: string,
+  plate: string
+) {
+  try {
+    const result = await rdwVehicleProvider.lookupEconomy(
+      c.env,
+      country,
+      plate
+    );
+    return c.json(
+      result,
+      200,
+      {
+        "cache-control": "private, no-store"
+      }
+    );
+  } catch (error) {
+    return c.json(
+      { error: error instanceof Error ? error.message : "Lookup failed" },
+      502,
+      {
+        "cache-control": "private, no-store"
+      }
+    );
+  }
+}

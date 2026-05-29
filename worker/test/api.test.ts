@@ -85,6 +85,66 @@ describe("Worker API hardening", () => {
     expect(allowed.status).toBe(200);
     expect(allowed.headers.get("cache-control")).toBe("private, no-store");
   });
+
+  it("accepts POST vehicle lookups without putting plates in the URL", async () => {
+    const response = await app.request(
+      "/vehicles/lookup",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ country: "UK", plate: "AB12CDE" })
+      },
+      testEnv()
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    await expect(response.json()).resolves.toMatchObject({
+      supported: true,
+      country: "UK",
+      plate: "AB12CDE",
+      message: "UK lookup is not configured. Manual economy required."
+    });
+  });
+
+  it("rate-limits POST vehicle lookups before reading the body", async () => {
+    const response = await app.request(
+      "/vehicles/lookup",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "cf-connecting-ip": "203.0.113.20"
+        },
+        body: JSON.stringify({ country: "UK", plate: "AB12CDE" })
+      },
+      testEnv({
+        VEHICLE_RATE_LIMITER: deniedRateLimit()
+      })
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBe("60");
+    expect(response.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("rejects malformed POST vehicle lookup bodies", async () => {
+    const response = await app.request(
+      "/vehicles/lookup",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ country: "UK" })
+      },
+      testEnv()
+    );
+
+    expect(response.status).toBe(400);
+  });
 });
 
 function testEnv(overrides: Partial<Env> = {}): Env {

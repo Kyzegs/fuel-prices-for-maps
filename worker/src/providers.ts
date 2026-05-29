@@ -15,5 +15,5 @@ export interface PriceProvider {
 
 export interface VehicleProvider {
   readonly id: string;
-  lookupEconomy(country: string, plate: string): Promise<VehicleLookupResponse>;
+  lookupEconomy(env: Env, country: string, plate: string): Promise<VehicleLookupResponse>;
 }

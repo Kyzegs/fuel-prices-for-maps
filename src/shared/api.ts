@@ -31,8 +31,13 @@ export async function lookupVehicle(
   country: string,
   plate: string
 ): Promise<VehicleLookupResponse> {
-  const params = new URLSearchParams({ country, plate });
-  const response = await fetch(`${getApiBaseUrl()}/vehicles/lookup?${params}`);
+  const response = await fetch(`${getApiBaseUrl()}/vehicles/lookup`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ country, plate })
+  });
   return readJson(response);
 }
 

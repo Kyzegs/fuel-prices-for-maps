@@ -44,6 +44,7 @@ select {
 
 h1,
 h2,
+h3,
 p {
   margin: 0;
 }
@@ -56,6 +57,10 @@ h1 {
 
 h2 {
   font-size: 14px;
+}
+
+h3 {
+  font-size: 13px;
 }
 
 p {
@@ -77,6 +82,11 @@ p {
   align-items: center;
   display: flex;
   gap: 8px;
+}
+
+.section-title.compact {
+  color: #102033;
+  gap: 6px;
 }
 
 .row-between {
@@ -187,6 +197,28 @@ p {
   margin: 0;
 }
 
+.inline-status {
+  background: #f8fafc;
+  border: 1px solid #d8e1eb;
+  border-radius: 6px;
+  color: #52657a;
+  font-size: 12px;
+  margin: 0;
+  padding: 8px 10px;
+}
+
+.inline-status.error {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #be123c;
+}
+
+.inline-status.success {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #047857;
+}
+
 label {
   display: grid;
   gap: 6px;
@@ -222,6 +254,70 @@ select {
 
 .country-plate {
   grid-template-columns: 150px 1fr;
+}
+
+.vehicle-accordion {
+  display: grid;
+  gap: 8px;
+}
+
+.accordion-trigger {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #d8e1eb;
+  border-radius: 7px;
+  color: #102033;
+  cursor: pointer;
+  display: flex;
+  font-weight: 800;
+  justify-content: space-between;
+  min-height: 38px;
+  padding: 0 10px;
+  width: 100%;
+}
+
+.accordion-trigger svg:last-child {
+  color: #64748b;
+  transition: transform 120ms ease;
+}
+
+.accordion-trigger[aria-expanded="true"] {
+  background: #eef6f5;
+  border-color: #99d6d0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.accordion-trigger[aria-expanded="true"] svg:last-child {
+  transform: rotate(180deg);
+}
+
+.accordion-panel {
+  background: #ffffff;
+  border: 1px solid #d8e1eb;
+  border-radius: 7px;
+  box-shadow: 0 1px 2px rgba(15, 35, 50, 0.04);
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+}
+
+.accordion-trigger[aria-expanded="true"] + .accordion-panel {
+  border-top: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  margin-top: -8px;
+}
+
+.manual-vehicle-form {
+  display: grid;
+  gap: 10px;
+}
+
+.manual-vehicle-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .toggle {
@@ -301,7 +397,7 @@ select {
   display: grid;
   gap: 8px;
   grid-column: 1 / -1;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .vehicle-fields input,

@@ -8,7 +8,7 @@ Chrome and Firefox extension that overlays selected-country fuel costs on Google
 - Shows an inline trip fuel-cost estimate next to each route distance.
 - Uses European Commission Weekly Oil Bulletin prices for EU gasoline 95, diesel, and LPG.
 - Lets users set fuel economy, country, fuel type, and display currency.
-- Optionally looks up Dutch RDW vehicle economy by license plate. Saved plates stay in local extension storage only.
+- Optionally looks up Dutch RDW vehicle economy and UK DVLA vehicle details by license plate. Saved plates stay in local extension storage only.
 
 ## Stack
 
@@ -29,6 +29,12 @@ npm run worker:dev
 ```
 
 Set `WXT_API_BASE_URL` in `.env` to the one API URL the extension should call. Browser extensions cannot read `.env` after packaging, so this value is compiled into each build.
+
+For local Worker UK plate lookups, add your DVLA VES key to `.env` or `.dev.vars`:
+
+```env
+DVLA_VES_API_KEY=your_dvla_ves_key
+```
 
 ## Quality Gates
 
@@ -57,6 +63,14 @@ The Worker/API deployment does not need `WXT_API_BASE_URL`; that variable is onl
 
 `ALLOWED_ORIGINS` is intentionally empty by default, which makes public GET CORS open for extension clients whose browser-store origins are not known before publication.
 
+UK plate lookups use the DVLA Vehicle Enquiry Service from the Worker only. For production, configure the key as a Cloudflare secret instead of committing it:
+
+```bash
+npx wrangler secret put DVLA_VES_API_KEY --env production
+```
+
+Wrangler v4 can load Worker local secrets from `.env` or `.dev.vars`; production secrets should be configured through Cloudflare Workers secrets.
+
 ## Scheduled Price Sync Worker
 
 Fuel price imports run in a separate sync-only Cloudflare Worker with a Cron Trigger. It has no public routes and writes to the same `PRICE_CACHE` KV namespace as the API Worker.
@@ -78,7 +92,8 @@ crons = ["15 3 * * *"]
 
 - `GET /health`
 - `GET /prices/latest?countries=NL,BE&fuel=gasoline_95`
-- `GET /vehicles/lookup?country=NL&plate=...`
+- `POST /vehicles/lookup` with JSON body `{ "country": "UK", "plate": "AB12CDE" }`
+- `GET /vehicles/lookup?country=NL&plate=...` for legacy clients
 
 Public price reads do not trigger forced upstream refreshes. If a fresh backend fetch fails in the extension, recent local cached data can be shown with a cached-data status message.
 
@@ -108,4 +123,4 @@ Generated packages are written under `.output/`.
 
 - If fuel prices are unavailable, check Worker `/health`, KV bindings, and the sync Worker cron logs.
 - If Google Maps annotations disappear, reload the Maps tab; the content script observes route sidebar changes and re-annotates visible route distances.
-- If RDW lookup fails or returns no economy, enter fuel economy manually.
+- If RDW or DVLA lookup fails or returns no economy, enter fuel economy manually.
