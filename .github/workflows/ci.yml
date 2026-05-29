@@ -10,7 +10,7 @@ jobs:
   release-check:
     runs-on: ubuntu-latest
     env:
-      WXT_API_BASE_URL: fuel.kyzegs.com
+      WXT_API_BASE_URL: https://fuel.kyzegs.com
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
