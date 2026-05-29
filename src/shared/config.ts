@@ -1,4 +1,4 @@
-export const API_BASE_URL_ENV_VAR = "WXT_API_BASE_URL";
+const API_BASE_URL_ENV_VAR = "WXT_API_BASE_URL";
 
 type ImportMetaWithExtensionEnv = ImportMeta & {
   env?: {

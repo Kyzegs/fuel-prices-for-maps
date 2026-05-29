@@ -1,7 +1,7 @@
 import { litersForDistance, refuelsForDistance, round } from "../shared/fuel";
 import type { PriceQuote, UserSettings } from "../shared/types";
 
-export const FUEL_COST_CLASS = "fuel-cost-inline";
+const FUEL_COST_CLASS = "fuel-cost-inline";
 
 export interface ParsedDistance {
   distanceKm: number;
@@ -113,7 +113,7 @@ export function removeAnnotations(root: ParentNode = document) {
   root.querySelectorAll(`.${FUEL_COST_CLASS}`).forEach((element) => element.remove());
 }
 
-export function isCarRouteDistanceElement(
+function isCarRouteDistanceElement(
   element: HTMLElement,
   root: ParentNode = document
 ): boolean {

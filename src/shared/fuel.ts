@@ -7,7 +7,7 @@ const KM_PER_MILE = 1.609344;
 const LITERS_PER_US_GALLON = 3.785411784;
 const LITERS_PER_IMP_GALLON = 4.54609;
 
-export function litersPerKm(economy: FuelEconomy): number {
+function litersPerKm(economy: FuelEconomy): number {
   if (!Number.isFinite(economy.value) || economy.value <= 0) {
     throw new Error("Fuel economy must be greater than zero.");
   }

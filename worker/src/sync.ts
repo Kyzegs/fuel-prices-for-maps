@@ -10,8 +10,3 @@ export async function syncFuelPrices(
   return quotes.length;
 }
 
-export default {
-  async scheduled(_event: unknown, env: Env, _ctx: unknown) {
-    await syncFuelPrices(env);
-  }
-};

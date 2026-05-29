@@ -65,7 +65,7 @@ export const SUPPORTED_CURRENCIES = Array.from(
   new Set(SUPPORTED_PRICE_COUNTRIES.map((country) => country.currency))
 ).sort();
 
-export type SupportedPlateCountry = (typeof SUPPORTED_PLATE_COUNTRIES)[number]["code"];
+type SupportedPlateCountry = (typeof SUPPORTED_PLATE_COUNTRIES)[number]["code"];
 
 export type EconomyUnit = "l_per_100km" | "km_per_l" | "mpg_us" | "mpg_imp";
 
@@ -101,7 +101,7 @@ export interface UserSettings {
   selectedVehicleId?: string;
 }
 
-export interface RouteInput {
+interface RouteInput {
   origin: string;
   destination: string;
   waypoints?: string[];
@@ -121,7 +121,7 @@ export interface PriceQuote {
   };
 }
 
-export interface RouteCostSegment {
+interface RouteCostSegment {
   country: string;
   distanceKm: number;
   liters: number;

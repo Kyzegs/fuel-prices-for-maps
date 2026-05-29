@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { FUEL_TYPES } from "../../src/shared/types";
 
-export const fuelTypeSchema = z.enum(FUEL_TYPES);
+const fuelTypeSchema = z.enum(FUEL_TYPES);
 
-export const economySchema = z.object({
+const economySchema = z.object({
   value: z.number().positive(),
   unit: z.enum(["l_per_100km", "km_per_l", "mpg_us", "mpg_imp"])
 });

@@ -58,7 +58,7 @@ interface OilBulletinReport {
   countries: Record<string, Partial<Record<FuelType, number>>>;
 }
 
-export async function getLatestPrice(
+async function getLatestPrice(
   env: Env,
   country: string,
   fuel: FuelType,
@@ -105,7 +105,7 @@ export const ecOilBulletinPriceProvider: PriceProvider = {
   sync: syncPrices
 };
 
-export async function syncPrices(env: Env) {
+async function syncPrices(env: Env) {
   const report = await importLatestReport(env, { force: true });
   const quotes: PriceQuote[] = [];
 

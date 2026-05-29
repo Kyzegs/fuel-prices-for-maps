@@ -45,7 +45,7 @@ export async function getDailyPrice(
   return request;
 }
 
-export async function clearDailyPrice(
+async function clearDailyPrice(
   country: string,
   fuel: FuelType
 ): Promise<void> {

@@ -5,7 +5,7 @@ import type {
 } from "./types";
 import { getApiBaseUrl } from "./config";
 
-export class ApiError extends Error {
+class ApiError extends Error {
   constructor(
     message: string,
     public readonly status?: number

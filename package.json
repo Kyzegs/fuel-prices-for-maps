@@ -24,7 +24,8 @@
     "test:watch": "vitest",
     "typecheck": "npm run typecheck:extension && npm run typecheck:worker",
     "typecheck:extension": "wxt prepare && tsc -p tsconfig.json --noEmit",
-    "typecheck:worker": "tsc -p tsconfig.worker.json --noEmit"
+    "typecheck:worker": "tsc -p tsconfig.worker.json --noEmit",
+    "knip": "knip"
   },
   "dependencies": {
     "hono": "^4.10.9",
@@ -38,11 +39,12 @@
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
-    "@types/node": "^24.10.1",
+    "@types/node": "^24.12.4",
     "@types/react": "^19.2.6",
     "@types/react-dom": "^19.2.3",
     "@wxt-dev/module-react": "^1.2.2",
     "jsdom": "^27.2.0",
+    "knip": "^6.14.2",
     "typescript": "^5.9.3",
     "vitest": "^4.0.14",
     "wrangler": "^4.50.0",
