@@ -1,4 +1,4 @@
-name = "fuel-prices-for-maps"
+name = "fuel-prices-for-google-maps"
 main = "worker/src/index.ts"
 compatibility_date = "2025-11-21"
 
