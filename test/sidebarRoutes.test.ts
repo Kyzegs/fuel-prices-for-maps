@@ -22,6 +22,10 @@ describe("Google Maps sidebar distance parsing", () => {
     expect(parseDistanceText("12,5 km")?.distanceKm).toBe(12.5);
   });
 
+  it("parses comma kilometer thousands separators", () => {
+    expect(parseDistanceText("1,327 km")?.distanceKm).toBe(1327);
+  });
+
   it("parses dotted kilometer thousands separators", () => {
     expect(parseDistanceText("1.323 km")?.distanceKm).toBe(1323);
   });
@@ -30,8 +34,25 @@ describe("Google Maps sidebar distance parsing", () => {
     expect(parseDistanceText("12.5 km")?.distanceKm).toBe(12.5);
   });
 
+  it("parses comma decimal labels with dotted thousands separators", () => {
+    expect(parseDistanceText("1.327,5 km")?.distanceKm).toBe(1327.5);
+  });
+
+  it("parses dotted decimal labels with comma thousands separators", () => {
+    expect(parseDistanceText("1,327.5 km")?.distanceKm).toBe(1327.5);
+  });
+
   it("converts miles to kilometers", () => {
     expect(parseDistanceText("10 mi")?.distanceKm).toBeCloseTo(16.09344);
+  });
+
+  it("uses comma kilometer thousands separators for rendered costs", () => {
+    const element = document.createElement("div");
+    element.textContent = "1,327 km";
+
+    annotateDistanceElement(element, settings, price);
+
+    expect(element.textContent).toContain("€172.51");
   });
 
   it("uses dotted kilometer thousands separators for rendered costs", () => {

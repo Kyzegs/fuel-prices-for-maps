@@ -36,15 +36,37 @@ export function parseDistanceText(text: string): ParsedDistance | null {
 }
 
 function parseDistanceValue(value: string): number {
-  if (value.includes(",")) {
-    return Number(value.replace(/\./g, "").replace(",", "."));
+  const hasComma = value.includes(",");
+  const hasDot = value.includes(".");
+
+  if (hasComma && hasDot) {
+    const decimalSeparator = value.lastIndexOf(",") > value.lastIndexOf(".") ? "," : ".";
+    const groupingSeparator = decimalSeparator === "," ? "." : ",";
+    return Number(
+      value
+        .replace(new RegExp(`\\${groupingSeparator}`, "g"), "")
+        .replace(decimalSeparator, ".")
+    );
   }
 
-  if (/^\d{1,3}(?:\.\d{3})+$/.test(value)) {
-    return Number(value.replace(/\./g, ""));
+  const separator = hasComma ? "," : hasDot ? "." : "";
+  if (!separator) return Number(value);
+
+  const parts = value.split(separator);
+  if (parts.length > 2) {
+    return isGroupedThousands(parts) ? Number(parts.join("")) : Number.NaN;
   }
 
-  return Number(value);
+  const [whole, decimalOrGroup] = parts;
+  if (/^\d{1,3}$/.test(whole) && /^\d{3}$/.test(decimalOrGroup)) {
+    return Number(`${whole}${decimalOrGroup}`);
+  }
+
+  return Number(`${whole}.${decimalOrGroup}`);
+}
+
+function isGroupedThousands(parts: string[]): boolean {
+  return /^\d{1,3}$/.test(parts[0]) && parts.slice(1).every((part) => /^\d{3}$/.test(part));
 }
 
 export function findDistanceElements(root: ParentNode = document): HTMLElement[] {
